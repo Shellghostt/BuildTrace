@@ -67,7 +67,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **No dependencies are recorded**, and there is no SBOM and no reproducibility check.
 - The race detector could not be run locally: the only C compiler on that machine is MinGW GCC 6.3.0,
   which cannot build a 64-bit race-enabled binary. CI runs `go test -race` on ubuntu-latest.
-- The CI workflow has never executed: the repository has no remote yet.
+- The CI workflow had not executed when this tag was created: the repository had no remote yet. It has
+  since run on GitHub; see [Unreleased].
 
 ## [0.0.0] - 2026-11-13
 
