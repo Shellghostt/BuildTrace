@@ -31,6 +31,20 @@ The unit tests need a real `git` binary: they create a throwaway repository in a
 and read it, rather than mocking git's output. A machine without git cannot run them, and the tests
 skip themselves with a message saying so.
 
+## Code navigation
+
+[CodeGraph](https://github.com/colbymchenry/codegraph) builds a local symbol index of this
+repository. It is optional: neither the build nor CI depends on it.
+
+```bash
+codegraph init --yes .   # build the index once
+codegraph status          # whether the index is current
+codegraph sync            # refresh it after a change
+```
+
+The index lives in `.codegraph/`. Git ignores its database and temporary files; the
+`.codegraph/.gitignore` that enforces that is tracked.
+
 ## Commit messages
 
 Conventional Commits, imperative mood, no trailing period:

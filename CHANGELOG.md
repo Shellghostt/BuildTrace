@@ -7,6 +7,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- The repository tracks CodeGraph's index ignore rules and documents it as an optional local tool
+  for code navigation. Nothing in the build or in CI depends on it.
+
 ### Changed
 
 - The repository is published at https://github.com/Shellghostt/BuildTrace and the CI workflow has
