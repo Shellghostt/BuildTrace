@@ -69,10 +69,12 @@ conservative choice is always the one that can be defended.
 17. **The build timestamp is the only value that changes between two runs, and it can be pinned.**
     `--built-at` takes an RFC 3339 timestamp and `SOURCE_DATE_EPOCH` takes a Unix timestamp. The flag
     wins over the environment variable. The timestamp is truncated to the second and converted to UTC.
-18. **`internal/manifest` and `internal/cli` are new packages.** The plan's layout has no home for the
-    `buildtrace.json` format, and `internal/hashing` does not exist until M2 and is about hashing, not
-    serialisation. `internal/cli` exists so that the exit codes and the output of every command can be
-    tested: a test that cannot call `main` cannot check them.
+18. **`internal/manifest`, `internal/cli` and `internal/testrepo` are new packages.** The plan's layout has
+    no home for the `buildtrace.json` format, and `internal/hashing` does not exist until M2 and is
+    about hashing, not serialisation. `internal/cli` exists so that the exit codes and the output of
+    every command can be tested: a test that cannot call `main` cannot check them. `internal/testrepo`
+    creates a throwaway git repository in a temporary directory, so that the tests read a real `git`
+    binary rather than a mock of it.
 19. **The exit codes are the plan's codes.** 0 is success, 2 is invalid input (outside a repository, a
     missing artifact, a directory artifact, a malformed timestamp), 3 is a tool error (an unwritable
     output file) or a command that is not implemented yet. Exit 1, "verification failed", has no path
@@ -93,7 +95,9 @@ conservative choice is always the one that can be defended.
   stdout or in stderr.
 - The unit tests use a real `git` binary against a throwaway repository in a temporary directory.
   Repository discovery is stopped at the parent of that directory with `GIT_CEILING_DIRECTORIES`,
-  because a machine may well have a repository further up the tree.
+  because a machine may well have a repository further up the tree. That is not a hypothetical: the
+  machine that produced this release has a repository at the root of the user profile, which contains
+  every temporary directory.
 - M2 starts at BT-006. The manifest format is versioned by `schemaVersion` (currently 1); M2 adds the
   digest field and starts enforcing the version.
 - The race detector could not be run on the machine that produced this release: the only C compiler

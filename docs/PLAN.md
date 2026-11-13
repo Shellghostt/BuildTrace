@@ -359,6 +359,7 @@ buildtrace/
 ├── internal/cli/            command implementations and exit codes (added in M1)
 ├── internal/metadata/       git, environment, toolchain capture
 ├── internal/manifest/       manifest model, serialiser, artifact collection (added in M1)
+├── internal/testrepo/       throwaway git repositories for the tests (added in M1)
 ├── internal/hashing/        streaming sha256, directory determinism
 ├── internal/attestation/    statement and predicate construction
 ├── internal/signing/        dsse, keyless, local key
@@ -370,11 +371,14 @@ buildtrace/
 └── docs/                    plan, architecture, formats, ADRs
 ```
 
-The two packages marked "added in M1" are not in the original layout, and the reason is worth
+The three packages marked "added in M1" are not in the original layout, and the reason is worth
 recording. `internal/manifest` holds the `buildtrace.json` format, which the plan's section 7 does not
 give a home to; the alternative was to put it in `internal/hashing`, which does not exist until M2 and
 whose job is hashing, not serialisation. `internal/cli` exists so that the exit codes and the output
-of every command can be tested: a test that cannot call `main` cannot check them.
+of every command can be tested: a test that cannot call `main` cannot check them. `internal/testrepo`
+creates a throwaway git repository in a temporary directory; the tests read a real `git` binary rather
+than a mock of it, because the collector's job is to talk to git correctly, and a mock only proves that
+the mock agrees with the test.
 
 ---
 

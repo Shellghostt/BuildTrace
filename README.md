@@ -164,6 +164,7 @@ produce byte-identical manifests.
 | `internal/cli` | The commands and their exit codes |
 | `internal/metadata` | Git state, toolchain and platform capture |
 | `internal/manifest` | The `buildtrace.json` model, serialiser and artifact collection |
+| `internal/testrepo` | Throwaway git repositories for the tests |
 | `internal/hashing` | Artifact hashing and directory determinism (M2) |
 | `internal/attestation` | Statement and predicate construction (M3) |
 | `internal/signing` | Sigstore keyless and local key signing (M4) |
