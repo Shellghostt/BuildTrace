@@ -65,17 +65,17 @@ func (a *App) Run(args []string) int {
 	case "manifest":
 		return a.runManifest(args[1:])
 	case "version", "--version", "-v":
-		fmt.Fprintf(a.Stdout, "buildtrace %s\n", a.Version)
+		_, _ = fmt.Fprintf(a.Stdout, "buildtrace %s\n", a.Version)
 		return ExitOK
 	case "help", "--help", "-h":
 		a.usage()
 		return ExitOK
 	case "record", "verify", "inspect":
-		fmt.Fprintf(a.Stderr,
+		_, _ = fmt.Fprintf(a.Stderr,
 			"buildtrace %s is planned for a later milestone and is not implemented yet\n", args[0])
 		return ExitToolError
 	default:
-		fmt.Fprintf(a.Stderr, "error: unknown command %q\n", args[0])
+		_, _ = fmt.Fprintf(a.Stderr, "error: unknown command %q\n", args[0])
 		a.usage()
 		return ExitInvalidInput
 	}
@@ -102,7 +102,7 @@ func (a *App) context() context.Context {
 }
 
 func (a *App) usage() {
-	fmt.Fprint(a.Stdout, `buildtrace - build provenance and artifact verification
+	_, _ = fmt.Fprint(a.Stdout, `buildtrace - build provenance and artifact verification
 
 Usage:
   buildtrace manifest --artifact <file> [--artifact <file>...] --out <file>
@@ -120,7 +120,7 @@ func (a *App) runManifest(args []string) int {
 	flags := flag.NewFlagSet("manifest", flag.ContinueOnError)
 	flags.SetOutput(a.Stderr)
 	flags.Usage = func() {
-		fmt.Fprint(a.Stderr, `Usage: buildtrace manifest --artifact <file> [--artifact <file>...] --out <file>
+		_, _ = fmt.Fprint(a.Stderr, `Usage: buildtrace manifest --artifact <file> [--artifact <file>...] --out <file>
                       [--repo <dir>] [--built-at <RFC3339>] [--builder-id <id>]
 `)
 	}
@@ -136,13 +136,13 @@ func (a *App) runManifest(args []string) int {
 		return ExitInvalidInput
 	}
 	if len(artifactPaths) == 0 {
-		fmt.Fprintln(a.Stderr, "error: at least one --artifact is required")
+		_, _ = fmt.Fprintln(a.Stderr, "error: at least one --artifact is required")
 		return ExitInvalidInput
 	}
 
 	builtTime, err := a.resolveBuiltAt(*builtAt)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "error: %v\n", err)
+		_, _ = fmt.Fprintf(a.Stderr, "error: %v\n", err)
 		return ExitInvalidInput
 	}
 
@@ -150,26 +150,26 @@ func (a *App) runManifest(args []string) int {
 	source, err := collector.Collect(a.context())
 	if err != nil {
 		if errors.Is(err, metadata.ErrNotARepository) {
-			fmt.Fprintf(a.Stderr, "error: %s is not a git repository\n", *repo)
+			_, _ = fmt.Fprintf(a.Stderr, "error: %s is not a git repository\n", *repo)
 			return ExitInvalidInput
 		}
 		if errors.Is(err, metadata.ErrNoCommits) {
-			fmt.Fprintf(a.Stderr, "error: %s has no commits yet\n", *repo)
+			_, _ = fmt.Fprintf(a.Stderr, "error: %s has no commits yet\n", *repo)
 			return ExitInvalidInput
 		}
-		fmt.Fprintf(a.Stderr, "error: read the git metadata: %v\n", err)
+		_, _ = fmt.Fprintf(a.Stderr, "error: read the git metadata: %v\n", err)
 		return ExitToolError
 	}
 
 	root, err := repositoryRoot(*repo, a.Git)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "error: read the repository root: %v\n", err)
+		_, _ = fmt.Fprintf(a.Stderr, "error: read the repository root: %v\n", err)
 		return ExitToolError
 	}
 
 	artifacts, err := manifest.CollectArtifacts(root, artifactPaths)
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "error: %v\n", err)
+		_, _ = fmt.Fprintf(a.Stderr, "error: %v\n", err)
 		return ExitInvalidInput
 	}
 
@@ -179,25 +179,25 @@ func (a *App) runManifest(args []string) int {
 	document := manifest.New(builtTime, source, builder, toolchain, artifacts)
 	encoded, err := document.Marshal()
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "error: %v\n", err)
+		_, _ = fmt.Fprintf(a.Stderr, "error: %v\n", err)
 		return ExitToolError
 	}
 
 	if source.Dirty {
-		fmt.Fprintln(a.Stderr,
+		_, _ = fmt.Fprintln(a.Stderr,
 			"warning: the working tree has uncommitted changes; the manifest records dirty: true")
 	}
 
 	if *output == "" {
 		if _, err := a.Stdout.Write(encoded); err != nil {
-			fmt.Fprintf(a.Stderr, "error: write the manifest: %v\n", err)
+			_, _ = fmt.Fprintf(a.Stderr, "error: write the manifest: %v\n", err)
 			return ExitToolError
 		}
 		return ExitOK
 	}
 
 	if err := os.WriteFile(*output, encoded, 0o644); err != nil {
-		fmt.Fprintf(a.Stderr, "error: write %s: %v\n", *output, err)
+		_, _ = fmt.Fprintf(a.Stderr, "error: write %s: %v\n", *output, err)
 		return ExitToolError
 	}
 	return ExitOK
