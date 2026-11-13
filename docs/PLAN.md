@@ -4,7 +4,7 @@ slug: buildtrace
 owner: shellghostt
 status: mvp
 version: 0.1.0
-language: Go 1.23
+language: Go 1.26
 license: Apache-2.0
 rank: 5
 focus: Software supply chain

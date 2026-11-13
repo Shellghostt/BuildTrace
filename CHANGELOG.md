@@ -7,6 +7,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- The repository is published at https://github.com/Shellghostt/BuildTrace and the CI workflow has
+  executed. The first run on 2026-11-13 passed the Windows, Ubuntu and macOS matrix, the lint job and
+  the vulnerability scan, including `go test -race`, which could not be run on the machine that
+  produced M1.
+- The Go floor moves from 1.23 to 1.26. `go.mod` declares `go 1.26.0` and `toolchain go1.26.11`, so
+  CI installs the patched toolchain and not the exact patch named by the `go` directive. Go 1.23 is
+  past its support window and receives no security fixes. See ADR 0003.
+- The builder image moves to `golang:1.26-alpine`.
+- The linter is golangci-lint v2.15.0, pinned by version, run by `golangci/golangci-lint-action@v9`.
+  The findings it produced were fixed in the code rather than excluded.
+
+### Fixed
+
+- The writes whose error return was discarded now say so explicitly with `_, _ =`.
+
 ### Planned
 
 - M2: streaming SHA-256 hashing, deterministic directory hashing, manifest verification and tamper

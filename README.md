@@ -4,7 +4,7 @@
 
 ![status](https://img.shields.io/badge/status-M1_manifest-orange)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-![Go](https://img.shields.io/badge/go-1.23-00ADD8?logo=go&logoColor=white)
+![Go](https://img.shields.io/badge/go-1.26-00ADD8?logo=go&logoColor=white)
 
 **Status: M1 (v0.1.0).** BuildTrace reads the facts about a build — the commit, the dirty state, the
 remote, the builder, the toolchain — and writes them to a deterministic `buildtrace.json`.
@@ -77,7 +77,7 @@ recompute.
 
 ## Quickstart
 
-Requires Go 1.23+ and `git`.
+Requires Go 1.26+ and `git`.
 
 ```bash
 make build
@@ -124,8 +124,8 @@ Real output from a local run:
 }
 ```
 
-The empty `uri` is honest: the repository this was produced from has no remote yet. A repository
-with a remote records it in the `git+` form, for example
+The empty `uri` is honest: this manifest was produced before the repository was published, so there
+was no remote to record. A repository with a remote records it in the `git+` form, for example
 `git+https://github.com/shellghostt/buildtrace`, with any credentials removed.
 
 Note what is **not** in there: a `digest` field. It arrives with M2, when the artifacts are actually
