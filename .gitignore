@@ -11,6 +11,10 @@
 coverage.*
 tests/load/results/
 
+# BuildTrace output
+/buildtrace.json
+/buildtrace.json.*
+
 # Tooling
 .golangci-lint-cache/
 

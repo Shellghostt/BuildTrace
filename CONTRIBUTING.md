@@ -27,6 +27,10 @@ make test        # unit tests
 make lint        # formatting and static analysis
 ```
 
+The unit tests need a real `git` binary: they create a throwaway repository in a temporary directory
+and read it, rather than mocking git's output. A machine without git cannot run them, and the tests
+skip themselves with a message saying so.
+
 ## Commit messages
 
 Conventional Commits, imperative mood, no trailing period:
@@ -55,7 +59,12 @@ A change is done when:
 - it is implemented, not stubbed;
 - it is covered by a test that fails without it;
 - `docs/PLAN.md` status fields and `README.md` roadmap reflect the new reality;
-- any user-visible behaviour is documented where a user would look for it.
+- any user-visible behaviour is documented where a user would look for it;
+- every field added to the manifest maps to an input a third party can recompute;
+- the "What this release does not prove" section of the README is updated when the answer changes.
+
+A field that cannot be recomputed by somebody else is not documentation, it is a guess. Do not add one
+to the manifest.
 
 ## Good first issues
 

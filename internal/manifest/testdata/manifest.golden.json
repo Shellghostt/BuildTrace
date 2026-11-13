@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "builtAt": "2026-11-13T09:58:00Z",
+  "source": {
+    "uri": "git+https://github.com/shellghostt/buildtrace",
+    "commit": "0123456789abcdef0123456789abcdef01234567",
+    "dirty": false
+  },
+  "builder": {
+    "id": "https://github.com/shellghostt/buildtrace/.github/workflows/release.yml",
+    "host": "builder-01",
+    "os": "linux",
+    "arch": "amd64"
+  },
+  "toolchain": {
+    "go": "1.23.4",
+    "git": "2.45.1"
+  },
+  "artifacts": [
+    {
+      "name": "app",
+      "path": "dist/app",
+      "size": 1024
+    },
+    {
+      "name": "app.sig",
+      "path": "dist/app.sig",
+      "size": 64
+    }
+  ]
+}

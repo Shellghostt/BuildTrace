@@ -10,3 +10,4 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}"
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/buildtrace /usr/local/bin/buildtrace
 ENTRYPOINT ["/usr/local/bin/buildtrace"]
+CMD ["version"]

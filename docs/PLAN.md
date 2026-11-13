@@ -2,14 +2,15 @@
 project: BuildTrace
 slug: buildtrace
 owner: shellghostt
-status: skeleton
-version: 0.0.0
+status: mvp
+version: 0.1.0
 language: Go 1.23
 license: Apache-2.0
 rank: 5
 focus: Software supply chain
 depends_on:
   - No runtime dependency (single static binary)
+  - git (subprocess, for repository metadata only)
   - Sigstore (signing, M4)
   - GitHub Actions (first CI integration, M5)
 created: 2026-11-13
@@ -27,30 +28,40 @@ updated: 2026-11-13
 
 ```yaml
 project: BuildTrace
-status: skeleton
-version: 0.0.0
+status: mvp
+version: 0.1.0
 builds: true
-functional: false
+functional: partial            # metadata and manifest work; nothing is hashed, signed or verified
 
 implemented:
   - repository skeleton
-  - cli binary that prints its version
+  - cli binary with the manifest and version commands
+  - git metadata collector: commit, dirty state, normalised remote uri
+  - toolchain and platform collector: go version, git version, os, arch, host
+  - manifest model and deterministic serialiser (internal/manifest)
+  - artifact collection: name, path relative to the repository root, size
+  - allowlisted environment for the git subprocess; remote credentials stripped
+  - pinned build timestamp via --built-at and SOURCE_DATE_EPOCH
+  - unit tests and golden-file tests
 
 not_implemented:
-  - metadata collection
-  - artifact hashing
-  - provenance generation
-  - signing
-  - verification
-  - github actions integration
-  - sbom generation
-  - reproducibility checks
+  - artifact hashing (sha256) -- M2
+  - manifest verification and tamper detection -- M2
+  - in-toto statement and slsa predicate -- M3
+  - the record, verify and inspect commands -- M3 and M4
+  - signing, dsse envelopes, sigstore -- M4
+  - identity policy -- M4
+  - github actions integration -- M5
+  - sbom generation -- M6
+  - reproducibility checks -- M6
+  - dependency tracking -- M6
 
 source_of_truth:
   scope_and_trust_model: docs/PLAN.md     # this file, sections 9 and 10
   architecture: docs/ARCHITECTURE.md
   decisions: docs/adr/
-  formats: pkg/intoto/
+  manifest_format: internal/manifest/
+  formats: pkg/intoto/                     # M3; still empty in M1
   status: README.md#roadmap
 
 forbidden_claims:
@@ -59,10 +70,12 @@ forbidden_claims:
   - "guarantees reproducibility"
   - verification without checking the subject digest against the artifact
   - any signature or provenance claim before M4
+  - a digest field in an M1 manifest: M1 does not hash anything
 
 if_uncertain:
   - every attestation field must map to an input a third party can recompute
   - if a claim cannot be verified offline, it does not belong in the attestation
+  - if the implementation does not do it, the README does not say it
 ```
 
 ---
@@ -185,15 +198,25 @@ flowchart LR
 {
   "schemaVersion": 1,
   "builtAt": "2026-11-13T10:00:00Z",
-  "source": { "uri": "git+https://github.com/shellghostt/eventrelay", "commit": "9f3c2ab", "dirty": false },
+  "source": { "uri": "git+https://github.com/shellghostt/eventrelay", "commit": "9f3c2ab...", "dirty": false },
   "builder": { "id": "local", "host": "workstation", "os": "windows", "arch": "amd64" },
-  "toolchain": { "go": "1.23.4" },
+  "toolchain": { "go": "1.23.4", "git": "2.45.1" },
   "artifacts": [
-    { "name": "eventrelay-linux-amd64", "path": "dist/eventrelay-linux-amd64", "size": 18432112,
-      "digest": { "sha256": "b1946ac92492d2347c6235b4d2611184..." } }
+    { "name": "eventrelay-linux-amd64", "path": "dist/eventrelay-linux-amd64", "size": 18432112 }
   ]
 }
 ```
+
+Two differences from the sketch above are deliberate, and both are M1 decisions rather than accidents:
+
+- **`commit` is the full 40-character SHA**, not the 7-character abbreviation. An abbreviation is
+  ambiguous: it can collide, and a consumer cannot check it against a repository without looking it up.
+- **There is no `digest` field in M1.** Hashing is BT-006 and BT-007, which are M2. The field is
+  omitted rather than emitted empty, so that an M1 manifest cannot be mistaken for a manifest whose
+  artifacts were hashed. M2 adds the field and starts enforcing `schemaVersion`.
+
+The `toolchain.git` field is also an M1 addition: knowing which git produced the commit matters when
+the commit is the thing being attested to.
 
 **Attestation** (in-toto Statement v1, SLSA provenance v1 predicate):
 
@@ -333,7 +356,9 @@ digest and compares bytes.
 ```
 buildtrace/
 ├── cmd/buildtrace/          CLI entry point
+├── internal/cli/            command implementations and exit codes (added in M1)
 ├── internal/metadata/       git, environment, toolchain capture
+├── internal/manifest/       manifest model, serialiser, artifact collection (added in M1)
 ├── internal/hashing/        streaming sha256, directory determinism
 ├── internal/attestation/    statement and predicate construction
 ├── internal/signing/        dsse, keyless, local key
@@ -345,6 +370,12 @@ buildtrace/
 └── docs/                    plan, architecture, formats, ADRs
 ```
 
+The two packages marked "added in M1" are not in the original layout, and the reason is worth
+recording. `internal/manifest` holds the `buildtrace.json` format, which the plan's section 7 does not
+give a home to; the alternative was to put it in `internal/hashing`, which does not exist until M2 and
+whose job is hashing, not serialisation. `internal/cli` exists so that the exit codes and the output
+of every command can be tested: a test that cannot call `main` cannot check them.
+
 ---
 
 ## 12. Milestones
@@ -355,11 +386,33 @@ buildtrace/
 
 **Acceptance criteria**
 
-- [ ] Git commit, dirty state and remote URI captured; dirty tree sets `dirty: true` and a warning
-- [ ] Builds outside a git repository fail with exit 2 and a clear message
-- [ ] Toolchain and OS information captured without reading arbitrary environment variables
-- [ ] Manifest is deterministic for identical inputs (no timestamps inside the digest input)
-- [ ] No secret ever appears in the manifest (test feeds a fake token through every field)
+- [x] Git commit, dirty state and remote URI captured; dirty tree sets `dirty: true` and a warning
+- [x] Builds outside a git repository fail with exit 2 and a clear message
+- [x] Toolchain and OS information captured without reading arbitrary environment variables
+- [x] Manifest is deterministic for identical inputs (no timestamps inside the digest input)
+- [x] No secret ever appears in the manifest (test feeds a fake token through every field)
+
+Status note (M1, 2026-11-13): all five criteria are implemented and covered by tests. What "captured"
+means in M1 is deliberately narrow, because the next milestone is the one that makes the claim strong:
+
+- The commit is the **full 40-character SHA** of `HEAD`, not a short SHA.
+- The remote URI is normalised to the `git+` form (`git+https://github.com/owner/repo`) and any
+  credentials in it are stripped. A remote like `https://user:token@example.com/repo.git` never reaches
+  a manifest.
+- The dirty flag covers modified, deleted and untracked files, because `git status --porcelain`
+  reports all three.
+- The manifest contains **no digest**. Hashing is BT-006 and BT-007, which are M2. The `digest` field
+  is omitted rather than left empty, so that an M1 manifest cannot be mistaken for a verified one.
+- The build timestamp is the only value that changes between two runs over the same inputs, and it can
+  be pinned with `--built-at` or `SOURCE_DATE_EPOCH`, which makes the manifest byte-for-byte
+  reproducible.
+- The environment reaches the `git` subprocess through an allowlist. `GIT_DIR` and `GIT_WORK_TREE` are
+  deliberately excluded, because they would point the collector at a different repository than the one
+  the user named.
+
+The M1 criteria do **not** include "the artifact is verified", because nothing is hashed yet. The
+`record`, `verify` and `inspect` commands exist in the command surface of section 8 but are not
+implemented: they exit 3 and say so.
 
 ### M2 — Artifact hashing and manifest verification
 
@@ -428,35 +481,35 @@ identity policy.
 
 ## 13. Backlog
 
-| ID | Task | Depends | Milestone |
-|---|---|---|---|
-| BT-001 | CLI skeleton, config, exit codes | — | M1 |
-| BT-002 | Git metadata collector | BT-001 | M1 |
-| BT-003 | Toolchain and platform collector | BT-001 | M1 |
-| BT-004 | Manifest model and serialiser | BT-002, BT-003 | M1 |
-| BT-005 | Secret-exclusion tests | BT-004 | M1 |
-| BT-006 | Streaming SHA-256 hasher | — | M2 |
-| BT-007 | Directory hashing with deterministic order | BT-006 | M2 |
-| BT-008 | Manifest verification | BT-004, BT-006 | M2 |
-| BT-009 | Tamper tests | BT-008 | M2 |
-| BT-010 | in-toto statement types in `pkg/intoto` | — | M3 |
-| BT-011 | SLSA predicate builder | BT-010 | M3 |
-| BT-012 | `inspect` command | BT-011 | M3 |
-| BT-013 | Schema validation against upstream | BT-011 | M3 |
-| BT-014 | DSSE encoding and PAE | BT-010 | M4 |
-| BT-015 | Local key signer and verifier | BT-014 | M4 |
-| BT-016 | Sigstore keyless signer | BT-014 | M4 |
-| BT-017 | Verification pipeline with stable reasons | BT-014 | M4 |
-| BT-018 | Identity policy matcher | BT-017 | M4 |
-| BT-019 | Offline verification tests with fixtures | BT-017 | M4 |
-| BT-020 | Reusable GitHub Action | BT-016 | M5 |
-| BT-021 | Release workflow and artifact upload | BT-020 | M5 |
-| BT-022 | Consumer verification docs | BT-021 | M5 |
-| BT-023 | CycloneDX SBOM generator | BT-011 | M6 |
-| BT-024 | SBOM as byproduct with digest | BT-023 | M6 |
-| BT-025 | Reproducibility checker | BT-017 | M6 |
-| BT-026 | Reference project double-build test | BT-025 | M6 |
-| BT-027 | v1.0.0 release and trust-model doc review | BT-022 | M6 |
+| ID | Task | Depends | Milestone | Status |
+|---|---|---|---|---|
+| BT-001 | CLI skeleton, config, exit codes | — | M1 | Done |
+| BT-002 | Git metadata collector | BT-001 | M1 | Done |
+| BT-003 | Toolchain and platform collector | BT-001 | M1 | Done |
+| BT-004 | Manifest model and serialiser | BT-002, BT-003 | M1 | Done |
+| BT-005 | Secret-exclusion tests | BT-004 | M1 | Done |
+| BT-006 | Streaming SHA-256 hasher | — | M2 | Not started |
+| BT-007 | Directory hashing with deterministic order | BT-006 | M2 | Not started |
+| BT-008 | Manifest verification | BT-004, BT-006 | M2 | Not started |
+| BT-009 | Tamper tests | BT-008 | M2 | Not started |
+| BT-010 | in-toto statement types in `pkg/intoto` | — | M3 | Not started |
+| BT-011 | SLSA predicate builder | BT-010 | M3 | Not started |
+| BT-012 | `inspect` command | BT-011 | M3 | Not started |
+| BT-013 | Schema validation against upstream | BT-011 | M3 | Not started |
+| BT-014 | DSSE encoding and PAE | BT-010 | M4 | Not started |
+| BT-015 | Local key signer and verifier | BT-014 | M4 | Not started |
+| BT-016 | Sigstore keyless signer | BT-014 | M4 | Not started |
+| BT-017 | Verification pipeline with stable reasons | BT-014 | M4 | Not started |
+| BT-018 | Identity policy matcher | BT-017 | M4 | Not started |
+| BT-019 | Offline verification tests with fixtures | BT-017 | M4 | Not started |
+| BT-020 | Reusable GitHub Action | BT-016 | M5 | Not started |
+| BT-021 | Release workflow and artifact upload | BT-020 | M5 | Not started |
+| BT-022 | Consumer verification docs | BT-021 | M5 | Not started |
+| BT-023 | CycloneDX SBOM generator | BT-011 | M6 | Not started |
+| BT-024 | SBOM as byproduct with digest | BT-023 | M6 | Not started |
+| BT-025 | Reproducibility checker | BT-017 | M6 | Not started |
+| BT-026 | Reference project double-build test | BT-025 | M6 | Not started |
+| BT-027 | v1.0.0 release and trust-model doc review | BT-022 | M6 | Not started |
 
 ---
 
@@ -506,7 +559,9 @@ identity policy.
 
 ## 17. Anti-hallucination contract
 
-**Facts:** the binary prints its version. No hashing, no attestation, no signing, no verification exists.
+**Facts:** the binary builds a `buildtrace.json` that records the commit, the dirty state, the normalised
+remote, the builder, the toolchain and the size of each artifact. It hashes nothing, signs nothing and
+verifies nothing. The `record`, `verify` and `inspect` commands are not implemented and exit 3.
 
 **Rules:**
 
@@ -518,6 +573,11 @@ identity policy.
 4. An attestation claim that cannot be recomputed by a third party must be removed, not documented.
 5. Update the README non-claims section whenever section 9.2 changes.
 6. Update status fields, roadmap and CHANGELOG in the same pull request.
+7. **Never describe the M1 manifest as proof of anything about the artifact.** It records a name, a path
+   and a size. Without a digest it says nothing about the bytes, and a manifest that looks like a
+   verified one is worse than no manifest.
+8. Never add a field to the manifest that the collector did not read from a real input. A derived or
+   guessed field is a hallucination.
 
 **Glossary:**
 
@@ -537,6 +597,16 @@ identity policy.
 
 1. Read sections 0, 3, 9 and 10. The trust model is the design.
 2. `make build && ./bin/buildtrace version`.
-3. Start at BT-002 and BT-006: metadata and hashing are the foundation of every later claim.
+3. M1 is done and tagged. The next milestone is **M2, artifact hashing and manifest verification**:
+   start at BT-006 (the streaming SHA-256 hasher), then BT-007 (deterministic directory hashing), then
+   BT-008 and BT-009. BT-006 is the first task in the whole backlog that is not M1 work, and it is the
+   one that turns the manifest from a description into evidence.
 4. Before adding any predicate field, answer: how would a third party recompute this?
 5. Never merge a verification path without a negative test for each failure reason.
+6. The manifest format is versioned by `schemaVersion` (currently 1). M2 adds the `digest` field and
+   starts enforcing the version: an unknown version must be rejected, not guessed. Changing the shape of
+   an existing field needs an ADR and a version bump.
+7. The repository layout in section 11 is the plan; `internal/manifest` and `internal/cli` were added in
+   M1 and are now part of it. `internal/hashing`, `internal/attestation`, `internal/signing`,
+   `internal/verify`, `internal/sbom` and `pkg/intoto` are still empty and are not to be scaffolded
+   before the milestone that needs them.

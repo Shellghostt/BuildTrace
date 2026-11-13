@@ -1,13 +1,20 @@
-// Command buildtrace is the entry point for BuildTrace.
+// Command buildtrace records how an artifact was built and verifies one.
 //
-// It serves the public API and the admin dashboard API.
+// The commands are:
 //
-// Status: skeleton. Nothing is implemented yet. See docs/PLAN.md.
+//	buildtrace manifest --artifact dist/app --out buildtrace.json
+//	buildtrace version
+//
+// `record`, `verify` and `inspect` arrive with the later milestones. The
+// tool says so rather than pretending they exist.
+//
+// See docs/PLAN.md for the specification this implements.
 package main
 
 import (
-	"fmt"
 	"os"
+
+	"github.com/shellghostt/buildtrace/internal/cli"
 )
 
 // version is overridden at build time with:
@@ -16,12 +23,10 @@ import (
 var version = "dev"
 
 func main() {
-	if len(os.Args) > 1 && (os.Args[1] == "version" || os.Args[1] == "--version") {
-		fmt.Printf("%s %s\n", "buildtrace", version)
-		return
+	app := &cli.App{
+		Version: version,
+		Stdout:  os.Stdout,
+		Stderr:  os.Stderr,
 	}
-
-	fmt.Println("buildtrace BuildTrace - skeleton, not implemented")
-	fmt.Println("Read docs/PLAN.md before running this binary.")
-	os.Exit(0)
+	os.Exit(app.Run(os.Args[1:]))
 }
