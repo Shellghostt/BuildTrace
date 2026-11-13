@@ -17,6 +17,7 @@ tests/load/results/
 
 # Tooling
 .golangci-lint-cache/
+.codegraph/
 
 # Environment
 .env
