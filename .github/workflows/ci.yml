@@ -2,8 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'feat/**', 'fix/**']
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,6 +14,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  container:
+    name: Container image integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build image
+        run: docker build --build-arg VERSION=ci-${{ github.sha }} -t buildtrace:ci .
+      - name: Exercise packaged CLI offline
+        run: bash tests/container/smoke.sh buildtrace:ci
+
   test:
     name: Build and test
     runs-on: ${{ matrix.os }}
@@ -42,10 +54,19 @@ jobs:
         run: go vet ./...
 
       - name: Test
-        run: go test -race -count=1 ./...
+        run: go test -race -count=1 -timeout=120s ./...
 
       - name: Build
         run: go build ./...
+
+      - name: Large artifact memory and tamper gate
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tests/bench/large-artifact.ps1
+
+      - name: Manifest parser fuzz smoke
+        if: runner.os == 'Linux'
+        run: go test ./internal/manifest -run '^$' -fuzz FuzzRead -fuzztime=10s
 
   lint:
     name: Lint

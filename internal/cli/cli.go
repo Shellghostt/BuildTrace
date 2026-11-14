@@ -64,13 +64,15 @@ func (a *App) Run(args []string) int {
 	switch args[0] {
 	case "manifest":
 		return a.runManifest(args[1:])
+	case "verify":
+		return a.runVerify(args[1:])
 	case "version", "--version", "-v":
 		_, _ = fmt.Fprintf(a.Stdout, "buildtrace %s\n", a.Version)
 		return ExitOK
 	case "help", "--help", "-h":
 		a.usage()
 		return ExitOK
-	case "record", "verify", "inspect":
+	case "record", "inspect":
 		_, _ = fmt.Fprintf(a.Stderr,
 			"buildtrace %s is planned for a later milestone and is not implemented yet\n", args[0])
 		return ExitToolError
@@ -108,6 +110,7 @@ Usage:
   buildtrace manifest --artifact <file> [--artifact <file>...] --out <file>
                       [--repo <dir>] [--built-at <RFC3339>] [--builder-id <id>]
   buildtrace version
+  buildtrace verify --manifest <file> [--root <dir>] [--json]
 `)
 }
 
@@ -139,6 +142,10 @@ func (a *App) runManifest(args []string) int {
 		_, _ = fmt.Fprintln(a.Stderr, "error: at least one --artifact is required")
 		return ExitInvalidInput
 	}
+	if flags.NArg() != 0 {
+		_, _ = fmt.Fprintln(a.Stderr, "error: unexpected positional arguments")
+		return ExitInvalidInput
+	}
 
 	builtTime, err := a.resolveBuiltAt(*builtAt)
 	if err != nil {
@@ -167,6 +174,10 @@ func (a *App) runManifest(args []string) int {
 		return ExitToolError
 	}
 
+	if err := validateOutput(root, artifactPaths, *output); err != nil {
+		_, _ = fmt.Fprintf(a.Stderr, "error: %v\n", err)
+		return ExitInvalidInput
+	}
 	artifacts, err := manifest.CollectArtifacts(root, artifactPaths)
 	if err != nil {
 		_, _ = fmt.Fprintf(a.Stderr, "error: %v\n", err)
@@ -196,7 +207,7 @@ func (a *App) runManifest(args []string) int {
 		return ExitOK
 	}
 
-	if err := os.WriteFile(*output, encoded, 0o644); err != nil {
+	if err := writeManifest(*output, encoded); err != nil {
 		_, _ = fmt.Fprintf(a.Stderr, "error: write %s: %v\n", *output, err)
 		return ExitToolError
 	}

@@ -31,8 +31,8 @@ func TestCollectArtifactsDescribesTheFiles(t *testing.T) {
 	if first.Size != 5 {
 		t.Fatalf("expected the size 5, got %d", first.Size)
 	}
-	if first.Digest != nil {
-		t.Fatal("expected no digest in M1")
+	if first.Kind != "file" || first.Digest == nil || first.Digest.SHA256 != "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824" {
+		t.Fatal("expected the SHA-256 of hello")
 	}
 }
 
@@ -53,18 +53,15 @@ func TestCollectArtifactsRejectsAMissingFile(t *testing.T) {
 	}
 }
 
-func TestCollectArtifactsRejectsADirectory(t *testing.T) {
+func TestCollectArtifactsHashesADirectory(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, "dist"), 0o755); err != nil {
 		t.Fatalf("create the directory: %v", err)
 	}
 
-	_, err := CollectArtifacts(root, []string{"dist"})
-	if err == nil {
-		t.Fatal("expected an error")
-	}
-	if !strings.Contains(err.Error(), "M2") {
-		t.Fatalf("expected the error to say when directories are supported, got %q", err.Error())
+	artifacts, err := CollectArtifacts(root, []string{"dist"})
+	if err != nil || len(artifacts) != 1 || artifacts[0].Kind != "directory" || artifacts[0].Digest == nil || artifacts[0].Size != 0 {
+		t.Fatalf("expected a hashed empty directory: %v %v", artifacts, err)
 	}
 }
 
@@ -77,6 +74,14 @@ func TestCollectArtifactsRejectsAnEmptyPath(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "empty") {
 		t.Fatalf("expected the error to say the path is empty, got %q", err.Error())
+	}
+}
+
+func TestCollectArtifactsRejectsDuplicatePaths(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "file"), "hello")
+	if _, err := CollectArtifacts(root, []string{"file", "./file"}); err == nil {
+		t.Fatal("generated duplicate artifact paths")
 	}
 }
 

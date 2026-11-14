@@ -5,6 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
+
+	"github.com/shellghostt/buildtrace/internal/hashing"
 )
 
 // ArtifactError describes a problem with one artifact path.
@@ -29,11 +32,10 @@ func (e *ArtifactError) Error() string {
 // layout of the machine that produced it and so that the same build
 // produces the same manifest on another machine.
 //
-// M1 handles files only. Directory artifacts are hashed deterministically in
-// M2, and until then saying so is better than recording a size that means
-// something else.
+// M2 hashes files, directories and terminal symlinks without following them.
 func CollectArtifacts(repoRoot string, paths []string) ([]Artifact, error) {
 	artifacts := make([]Artifact, 0, len(paths))
+	seen := map[string]bool{}
 
 	for _, path := range paths {
 		if strings.TrimSpace(path) == "" {
@@ -45,28 +47,28 @@ func CollectArtifacts(repoRoot string, paths []string) ([]Artifact, error) {
 			absolute = filepath.Join(repoRoot, path)
 		}
 		absolute = filepath.Clean(absolute)
+		recorded := relativePath(repoRoot, absolute)
+		if !utf8.ValidString(recorded) || strings.Contains(recorded, "\\") {
+			return nil, &ArtifactError{Path: path, Problem: "path must be UTF-8 with forward slash separators"}
+		}
+		if seen[recorded] {
+			return nil, &ArtifactError{Path: path, Problem: "duplicate artifact path"}
+		}
+		seen[recorded] = true
 
-		info, err := os.Stat(absolute)
+		result, err := hashing.Hash(absolute)
 		if err != nil {
 			if os.IsNotExist(err) {
 				return nil, &ArtifactError{Path: path, Problem: "the file does not exist"}
 			}
 			return nil, &ArtifactError{Path: path, Problem: err.Error()}
 		}
-		if info.IsDir() {
-			return nil, &ArtifactError{
-				Path:    path,
-				Problem: "directory artifacts are supported from M2, when the deterministic directory hasher exists",
-			}
-		}
-		if !info.Mode().IsRegular() {
-			return nil, &ArtifactError{Path: path, Problem: "not a regular file"}
-		}
-
 		artifacts = append(artifacts, Artifact{
-			Name: filepath.Base(absolute),
-			Path: relativePath(repoRoot, absolute),
-			Size: info.Size(),
+			Kind:   result.Kind,
+			Name:   filepath.Base(absolute),
+			Path:   recorded,
+			Size:   result.Size,
+			Digest: &Digest{SHA256: result.SHA256},
 		})
 	}
 

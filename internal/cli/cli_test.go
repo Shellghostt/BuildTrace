@@ -324,7 +324,7 @@ func TestVersionPrintsTheVersion(t *testing.T) {
 }
 
 func TestTheLaterCommandsSayTheyAreNotImplemented(t *testing.T) {
-	for _, command := range []string{"record", "verify", "inspect"} {
+	for _, command := range []string{"record", "inspect"} {
 		t.Run(command, func(t *testing.T) {
 			got := run(t, &App{}, command)
 

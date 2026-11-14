@@ -9,6 +9,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- M2 streaming file SHA-256, canonical directory hashing and symlink entries without following targets.
+- `verify --manifest` with offline recomputation of kind, digest and size, stable JSON reports and
+  exit codes. The v1 reader rejects missing digests, unsupported versions and ambiguous/malformed JSON.
+- Portable directory golden tests, actual CLI round trips/tampering, parser fuzzing and a 1 GiB
+  memory/tamper gate. ADR 0004 specifies canonical bytes and the unsigned verification scope.
+
 - The repository tracks CodeGraph's index ignore rules and documents it as an optional local tool
   for code navigation. Nothing in the build or in CI depends on it.
 
@@ -27,12 +33,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- Manifest output cannot replace an artifact or live inside a selected directory. Temporary sibling
+  writes avoid truncating destination symlink/hardlink targets.
+- Directory mutation checks use rooted stat metadata on Windows, avoiding false changes from cached
+  directory-entry information.
+
 - The writes whose error return was discarded now say so explicitly with `_, _ =`.
 
 ### Planned
 
-- M2: streaming SHA-256 hashing, deterministic directory hashing, manifest verification and tamper
-  detection.
+- M3: unsigned in-toto/SLSA provenance generation and inspection. Signing and identity checks remain M4.
 
 ## [0.1.0] - 2026-11-13
 

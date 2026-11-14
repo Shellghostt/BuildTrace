@@ -2,7 +2,7 @@ BINARY := buildtrace
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 
-.PHONY: bootstrap build test race golden lint fmt vet run manifest docker clean
+.PHONY: bootstrap build test race golden lint fmt vet run manifest memory-gate docker clean
 
 bootstrap:
 	go mod download
@@ -39,6 +39,9 @@ run: build
 #   make manifest ARTIFACTS="dist/app dist/app.sig"
 manifest: build
 	./bin/$(BINARY) manifest $(foreach a,$(ARTIFACTS),--artifact $(a)) --out buildtrace.json
+
+memory-gate:
+	pwsh -File tests/bench/large-artifact.ps1
 
 docker:
 	docker build -t buildtrace:$(VERSION) .
