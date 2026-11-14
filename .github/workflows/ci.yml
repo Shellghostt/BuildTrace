@@ -14,6 +14,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  container:
+    name: Container image integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build image
+        run: docker build --build-arg VERSION=ci-${{ github.sha }} -t buildtrace:ci .
+      - name: Exercise packaged CLI offline
+        run: bash tests/container/smoke.sh buildtrace:ci
+
   test:
     name: Build and test
     runs-on: ${{ matrix.os }}

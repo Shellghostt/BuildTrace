@@ -1,0 +1,12 @@
+.git
+.codegraph
+.golangci-lint-cache
+bin
+dist
+.env
+.env.*
+buildtrace.json
+buildtrace.json.*
+*.exe
+*.out
+coverage.*

@@ -149,6 +149,21 @@ them with M2. Keep manifest output outside selected directory artifacts and stop
 The [canonical hashing contract](docs/adr/0004-m2-canonical-hashing-and-verification.md) defines directory
 and symlink bytes, including empty directories and a 100,000-entry bound.
 
+### Container image
+
+`docker build -t buildtrace:local .` builds the static CLI in an Alpine runtime that includes `git`
+for manifest capture and runs as UID/GID 65532. Files used for capture must be readable by that user,
+and an output directory must be writable. For verification, mount the manifest and artifacts read-only:
+
+```bash
+docker run --rm --network none --read-only \
+  --mount "type=bind,src=$(pwd),target=/work,readonly" \
+  buildtrace:local verify --manifest /work/buildtrace.json --root /work --json
+```
+
+`bash tests/container/smoke.sh buildtrace:local` checks capture, deterministic hashing, offline
+verification and the negative exit codes using temporary container memory only. CI runs the same check.
+
 ### Flags
 
 | Flag | Default | Meaning |

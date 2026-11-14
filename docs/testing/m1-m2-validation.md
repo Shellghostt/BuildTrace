@@ -54,14 +54,28 @@ Reproduce with `make memory-gate` on Windows/PowerShell. Each run creates its ow
 stores the report and removes only its generated large artifact after the missing-file test.
 CI now defines this gate on Windows, portable tests on three OSes, and a Linux parser fuzz smoke test.
 
-## Verification scope and remaining validation
+## Container image validation
+
+After Docker recovery, a fresh `buildtrace:m2-test` image built successfully using Go 1.26.11.
+The old runtime omitted `git` and could not capture repository metadata. The runtime now includes
+git 2.52.1 in Alpine 3.23 while the CLI remains a static binary running as UID/GID 65532.
+`.dockerignore` excludes binaries, tool/module caches, generated manifests and environment files.
+
+`bash tests/container/smoke.sh buildtrace:m2-test` passed with network disabled, a read-only root
+filesystem, all capabilities dropped and temporary `/work` storage. The packaged CLI captured real
+git metadata and file/directory/symlink digests, matched the independent SHA-256 of `hello`, produced
+byte-identical manifests for fixed inputs and verified with PATH containing no git or other tools.
+One-bit file tampering and a directory addition exited 1; schema version 99 and a missing artifact
+exited 2 with the expected reasons. CI builds the image and executes this same regression check.
+
+## Verification scope
 
 M2 checks artifact bytes, kind and size against a supplied unsigned manifest. A successful result
 does not authenticate the source metadata, builder label or manifest. Signing and identity policy
 remain M4, provenance generation remains M3. Callers stop writers during hashing; metadata checks
 detect common changes but do not provide a filesystem snapshot. See ADR 0004 for canonical bytes.
 
-Native macOS execution and the updated remote CI have not run locally. Docker Desktop was unavailable
-during final validation, so a fresh container image was not built; Linux tests use WSL instead.
-The existing Dockerfile builds a static CLI, and six native target builds passed. No release or push
-is part of this implementation.
+The earlier Docker infrastructure failure is resolved and the image check above completed. Remote
+portable execution, the Windows memory gate, Linux fuzz smoke, image check, lint and security results
+are available in GitHub Actions for `feat/m2-implementation`. Six native target builds also passed.
+This implementation remains unreleased on its feature branch.
