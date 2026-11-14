@@ -14,7 +14,7 @@ depends_on:
   - Sigstore (signing, M4)
   - GitHub Actions (first CI integration, M5)
 created: 2026-11-13
-updated: 2026-11-13
+updated: 2026-11-14
 ---
 
 # BuildTrace — Implementation Plan
@@ -31,7 +31,7 @@ project: BuildTrace
 status: mvp
 version: 0.1.0
 builds: true
-functional: partial            # metadata and manifest work; nothing is hashed, signed or verified
+functional: partial            # metadata, hashing and unsigned manifest verification; no signing
 
 implemented:
   - repository skeleton
@@ -43,12 +43,14 @@ implemented:
   - allowlisted environment for the git subprocess; remote credentials stripped
   - pinned build timestamp via --built-at and SOURCE_DATE_EPOCH
   - unit tests and golden-file tests
+  - streaming sha256 for files and canonical directory/symlink hashing
+  - verify --manifest with kind, byte count and digest checks, offline
+  - strict manifest v1 reader, stable JSON reports and tamper tests
+  - 1 GiB memory gate, portable directory golden and parser fuzzing
 
 not_implemented:
-  - artifact hashing (sha256) -- M2
-  - manifest verification and tamper detection -- M2
   - in-toto statement and slsa predicate -- M3
-  - the record, verify and inspect commands -- M3 and M4
+  - record, inspect and signed-attestation verification -- M3 and M4
   - signing, dsse envelopes, sigstore -- M4
   - identity policy -- M4
   - github actions integration -- M5
@@ -267,15 +269,16 @@ buildtrace verify --artifact dist/app --attestation dist/app.intoto.jsonl
                    [--identity <workflow-ref>] [--issuer <oidc-issuer>] [--allow-unsigned]
 buildtrace inspect --attestation dist/app.intoto.jsonl [--json]
 buildtrace manifest --artifact dist/app --out buildtrace.json
+buildtrace verify --manifest buildtrace.json [--root <dir>] [--json]
 buildtrace version
 ```
 
 | Exit code | Meaning |
 |---|---|
-| 0 | Verified: digest, signature and identity policy all pass |
+| 0 | M2: artifacts match unsigned manifest; M4 signed verification also checks signature/identity |
 | 1 | Verification failed: specific reason printed |
 | 2 | Invalid input: malformed attestation, missing artifact |
-| 3 | Tool error: I/O, unsupported statement version |
+| 3 | Tool error: I/O; unsupported manifest version specifically exits 2 in M2 |
 
 Verification output is line-oriented and machine-readable with `--json`; the human form names the exact check
 that failed.
@@ -285,6 +288,10 @@ that failed.
 ## 9. Core contracts
 
 ### 9.1 What verification proves
+
+M2 unsigned mode checks each artifact's kind, digest and byte count against a supplied v1 manifest.
+Success declares `scope: unsigned_manifest` and `status: matched`. Source metadata, builder labels,
+signatures and dependencies are not authenticated. The full signed pipeline below remains M4.
 
 Given an artifact `A`, an attestation `S`, and a policy `P(identity, issuer)`:
 
@@ -296,6 +303,9 @@ Given an artifact `A`, an attestation `S`, and a policy `P(identity, issuer)`:
 6. `resolvedDependencies` contains a commit digest, and it is the commit the user expects (if supplied).
 
 ### 9.2 What verification does **not** prove
+
+- M2 manifests are unsigned. An attacker can edit both artifact and expected digest; a match alone
+  does not authenticate the build, source commit or builder identity.
 
 - That the build was honest. A compromised builder can sign a lie. Provenance shifts trust to the builder
   identity, it does not eliminate it.
@@ -327,6 +337,12 @@ Each failure has a stable machine-readable reason string and a one-line explanat
 - Hash the artifact **after** the build finishes and **before** it is uploaded. Record size as well.
 - Symlinks are not followed; they are recorded as entries.
 - Directories are hashed deterministically by sorted relative path.
+
+M2 canonical bytes and version compatibility are specified in ADR 0004. Files stream with a 1 MiB
+buffer. Directory path metadata is globally sorted and bounded to 100,000 entries; empty directories
+and symlink target strings participate in the digest. Metadata such as timestamps and permissions
+does not. Stop writers during hashing; it is not a filesystem snapshot. Manifest output must be
+outside selected directory artifacts and cannot replace a selected file.
 
 ### 9.5 Signing rules (M4)
 
@@ -414,9 +430,8 @@ means in M1 is deliberately narrow, because the next milestone is the one that m
   deliberately excluded, because they would point the collector at a different repository than the one
   the user named.
 
-The M1 criteria do **not** include "the artifact is verified", because nothing is hashed yet. The
-`record`, `verify` and `inspect` commands exist in the command surface of section 8 but are not
-implemented: they exit 3 and say so.
+At the M1 tag, `record`, `verify` and `inspect` were unimplemented. M2 now implements only
+`verify --manifest`; signed-attestation verification and the other commands remain later milestones.
 
 ### M2 — Artifact hashing and manifest verification
 
@@ -424,11 +439,17 @@ implemented: they exit 3 and say so.
 
 **Acceptance criteria**
 
-- [ ] 1 GB artifact hashed with constant memory (< 64 MB RSS)
-- [ ] A single flipped byte produces `digest_mismatch` naming the artifact
-- [ ] Directory hashing is stable across OSes and file ordering
-- [ ] Missing artifact exits 2, not 0
-- [ ] Manifest schema version is enforced; unknown version is rejected, not guessed
+- [x] 1 GB artifact hashed with constant memory (< 64 MB RSS)
+- [x] A single flipped byte produces `digest_mismatch` naming the artifact
+- [x] Directory hashing is stable across OSes and file ordering
+- [x] Missing artifact exits 2, not 0
+- [x] Manifest schema version is enforced; unknown version is rejected, not guessed
+
+M2 evidence: [validation report](testing/m1-m2-validation.md). A 1 GiB (1,073,741,824 byte)
+file measured 44.04 MiB peak working set for capture and 7.61 MiB for verify on Windows, with an
+independent SHA-256 comparison, one-byte tamper exit 1 and missing-artifact exit 2. The same directory
+golden passes on Windows and Linux/WSL with reversed creation order and differing metadata. Native
+macOS execution remains CI validation; cross-platform builds are checked separately.
 
 ### M3 — Provenance generation
 
@@ -492,10 +513,10 @@ identity policy.
 | BT-003 | Toolchain and platform collector | BT-001 | M1 | Done |
 | BT-004 | Manifest model and serialiser | BT-002, BT-003 | M1 | Done |
 | BT-005 | Secret-exclusion tests | BT-004 | M1 | Done |
-| BT-006 | Streaming SHA-256 hasher | — | M2 | Not started |
-| BT-007 | Directory hashing with deterministic order | BT-006 | M2 | Not started |
-| BT-008 | Manifest verification | BT-004, BT-006 | M2 | Not started |
-| BT-009 | Tamper tests | BT-008 | M2 | Not started |
+| BT-006 | Streaming SHA-256 hasher | — | M2 | Done |
+| BT-007 | Directory hashing with deterministic order | BT-006 | M2 | Done |
+| BT-008 | Manifest verification | BT-004, BT-006 | M2 | Done |
+| BT-009 | Tamper tests | BT-008 | M2 | Done |
 | BT-010 | in-toto statement types in `pkg/intoto` | — | M3 | Not started |
 | BT-011 | SLSA predicate builder | BT-010 | M3 | Not started |
 | BT-012 | `inspect` command | BT-011 | M3 | Not started |
@@ -564,15 +585,16 @@ identity policy.
 ## 17. Anti-hallucination contract
 
 **Facts:** the binary builds a `buildtrace.json` that records the commit, the dirty state, the normalised
-remote, the builder, the toolchain and the size of each artifact. It hashes nothing, signs nothing and
-verifies nothing. The `record`, `verify` and `inspect` commands are not implemented and exit 3.
+remote, builder and toolchain, plus artifact kind, size and SHA-256. M2 verification checks artifacts
+against an unsigned v1 manifest offline. It does not sign or authenticate metadata. `record`, `inspect`
+and signed-attestation verification remain unimplemented.
 
 **Rules:**
 
 1. Never write "SLSA compliant", "SLSA level 3" or "certified". We produce compatible provenance and claim
    nothing about compliance.
 2. Never say verification proves an artifact is safe, trustworthy or unmodified **by a human attacker**. It
-   proves the digest matches and the signer matches policy.
+   checks digests against the supplied unsigned manifest in M2. Signer policy arrives in M4.
 3. Never claim reproducibility without the M6 test that produced it.
 4. An attestation claim that cannot be recomputed by a third party must be removed, not documented.
 5. Update the README non-claims section whenever section 9.2 changes.
@@ -601,16 +623,15 @@ verifies nothing. The `record`, `verify` and `inspect` commands are not implemen
 
 1. Read sections 0, 3, 9 and 10. The trust model is the design.
 2. `make build && ./bin/buildtrace version`.
-3. M1 is done and tagged. The next milestone is **M2, artifact hashing and manifest verification**:
-   start at BT-006 (the streaming SHA-256 hasher), then BT-007 (deterministic directory hashing), then
-   BT-008 and BT-009. BT-006 is the first task in the whole backlog that is not M1 work, and it is the
-   one that turns the manifest from a description into evidence.
+3. M1 is tagged and M2 is implemented on the feature branch. The next milestone is M3 provenance,
+   starting at BT-010. Preserve the canonical hashing contract and unsigned scope in ADR 0004.
 4. Before adding any predicate field, answer: how would a third party recompute this?
 5. Never merge a verification path without a negative test for each failure reason.
-6. The manifest format is versioned by `schemaVersion` (currently 1). M2 adds the `digest` field and
-   starts enforcing the version: an unknown version must be rejected, not guessed. Changing the shape of
+6. Manifest `schemaVersion: 1` is enforced. M2 emits digest/kind and rejects unknown versions.
+   Changing the shape of
    an existing field needs an ADR and a version bump.
 7. The repository layout in section 11 is the plan; `internal/manifest` and `internal/cli` were added in
-   M1 and are now part of it. `internal/hashing`, `internal/attestation`, `internal/signing`,
-   `internal/verify`, `internal/sbom` and `pkg/intoto` are still empty and are not to be scaffolded
+   M1 and are now part of it. M2 uses `internal/hashing` and `internal/verify`.
+   `internal/attestation`, `internal/signing`, `internal/sbom` and `pkg/intoto` remain later milestones
+   and are not to be scaffolded
    before the milestone that needs them.

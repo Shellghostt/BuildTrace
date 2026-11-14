@@ -2,16 +2,14 @@
 
 > An open-source build provenance and artifact verification system.
 
-![status](https://img.shields.io/badge/status-M1_manifest-orange)
+![status](https://img.shields.io/badge/status-M2_hashing-orange)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 ![Go](https://img.shields.io/badge/go-1.26-00ADD8?logo=go&logoColor=white)
 
-**Status: M1 (v0.1.0).** BuildTrace reads the facts about a build — the commit, the dirty state, the
-remote, the builder, the toolchain — and writes them to a deterministic `buildtrace.json`.
-
-**It hashes nothing, signs nothing and verifies nothing.** The manifest records the *name*, *path* and
-*size* of each artifact. It says nothing about the bytes. Nothing in this release lets you verify
-anything, and nothing in this release claims to.
+**Status: M2 implemented on the feature branch (unreleased).** BuildTrace records build metadata
+and SHA-256 digests for files, directories and symlinks in a deterministic `buildtrace.json`.
+`verify --manifest` recomputes artifact kinds, digests and sizes offline. A match establishes
+consistency with the supplied unsigned manifest. Signatures and builder identity are not checked.
 
 ## Why this exists
 
@@ -27,7 +25,7 @@ attested to them. BuildTrace generates that evidence and, more importantly, veri
 | Record the build environment (builder, OS, toolchain) | M1 | **Done** |
 | Write a deterministic `buildtrace.json` | M1 | **Done** |
 | Strip credentials from the recorded remote | M1 | **Done** |
-| Generate and verify artifact hashes | M2 | Not started |
+| Generate and verify artifact hashes | M2 | **Done**, unreleased |
 | Generate provenance attestations (in-toto, SLSA) | M3 | Not started |
 | Verify artifact signatures | M4 | Not started |
 | CI/CD integration | M5 | Not started |
@@ -40,9 +38,9 @@ attested to them. BuildTrace generates that evidence and, more importantly, veri
 This section is the most important one in this README, and it is reproduced from
 [docs/PLAN.md](docs/PLAN.md) section 9.2. It changes only when that section changes.
 
-- **It does not prove the artifact is the one that was built.** There is no digest in an M1 manifest.
-- **It does not prove the artifact is safe, trustworthy or unmodified.** Nothing here analyses the
-  artifact's contents.
+- **The manifest is unsigned.** Anyone can edit both an artifact and its expected digest. A match
+  alone does not authenticate the build or its source commit.
+- **It does not prove the artifact is safe or trustworthy.** Nothing analyses its contents.
 - **It does not prove the build was reproducible.** Two builds of the same commit may differ, and
   nothing in this release compares them.
 - **It does not attest to who built it.** The `builder.id` is whatever the caller passed on the command
@@ -93,7 +91,7 @@ Write a manifest for the artifacts of the current repository:
   --out buildtrace.json
 ```
 
-Real output from a local run:
+Historical M1 output, before hashing was implemented:
 
 ```json
 {
@@ -128,14 +126,34 @@ The empty `uri` is honest: this manifest was produced before the repository was 
 was no remote to record. A repository with a remote records it in the `git+` form, for example
 `git+https://github.com/shellghostt/buildtrace`, with any credentials removed.
 
-Note what is **not** in there: a `digest` field. It arrives with M2, when the artifacts are actually
-hashed.
+M2 adds `kind` and `digest` to each artifact. For a file containing exactly `hello`:
+
+```json
+{"kind":"file","name":"app","path":"dist/app","size":5,"digest":{"sha256":"2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"}}
+```
+
+Verify from the repository root, or specify the artifact base directory:
+
+```sh
+./bin/buildtrace verify --manifest buildtrace.json --root . --json
+```
+
+```json
+{"scope":"unsigned_manifest","status":"matched","verified":2}
+```
+
+Verification needs neither git nor network access. Relative artifact paths resolve from `--root`
+(default current directory), regardless of where the manifest is saved. Paths outside the source
+repository remain absolute and host-specific. M1 manifests without digests are rejected; regenerate
+them with M2. Keep manifest output outside selected directory artifacts and stop writers during hashing.
+The [canonical hashing contract](docs/adr/0004-m2-canonical-hashing-and-verification.md) defines directory
+and symlink bytes, including empty directories and a 100,000-entry bound.
 
 ### Flags
 
 | Flag | Default | Meaning |
 |---|---|---|
-| `--artifact` | required, repeatable | A file the build produced. Directories are rejected until M2. |
+| `--artifact` | required, repeatable | A file, directory or terminal symlink the build produced. |
 | `--out` | stdout | Where to write the manifest. |
 | `--repo` | `.` | The repository the build came from. Must be inside a git repository. |
 | `--built-at` | now | The build timestamp, RFC 3339. Overrides `SOURCE_DATE_EPOCH`. |
@@ -149,12 +167,12 @@ produce byte-identical manifests.
 
 | Code | Meaning |
 |---|---|
-| 0 | The manifest was written. |
-| 1 | Verification failed. No verification exists in M1, so this code is never returned yet. |
-| 2 | Invalid input: outside a git repository, a missing artifact, a directory artifact, a malformed timestamp. |
+| 0 | Manifest written, or artifacts match the unsigned manifest. |
+| 1 | Verification mismatch: `digest_mismatch`, `kind_mismatch` or `size_mismatch`. |
+| 2 | Invalid input, missing artifact, malformed manifest or unsupported schema version. |
 | 3 | Tool error: an unwritable output file, or a command that is not implemented yet. |
 
-`record`, `verify` and `inspect` are not implemented. They exit 3 and say so.
+`record` and `inspect`, and verification of signed attestations, remain later milestones.
 
 ## Repository layout
 
@@ -168,7 +186,7 @@ produce byte-identical manifests.
 | `internal/hashing` | Artifact hashing and directory determinism (M2) |
 | `internal/attestation` | Statement and predicate construction (M3) |
 | `internal/signing` | Sigstore keyless and local key signing (M4) |
-| `internal/verify` | Signature and digest verification, policy checks (M4) |
+| `internal/verify` | Unsigned manifest comparison (M2); signature and policy checks remain M4 |
 | `internal/sbom` | CycloneDX generation (M6) |
 | `pkg/intoto` | in-toto statement types, no external dependency needed to read them (M3) |
 | `tests/fixtures` | Committed artifacts for offline verification tests (M4) |
@@ -178,7 +196,7 @@ produce byte-identical manifests.
 | Milestone | Deliverable | Status |
 |---|---|---|
 | M1 | Build metadata collection and manifest generation | **Done** (v0.1.0) |
-| M2 | Artifact hashing and manifest verification | Not started |
+| M2 | Artifact hashing and manifest verification | **Done**, unreleased |
 | M3 | in-toto provenance generation | Not started |
 | M4 | Signing and verification | Not started |
 | M5 | GitHub Actions integration | Not started |
@@ -191,15 +209,22 @@ the README is a bug.
 
 ```bash
 make test
+make race
+make memory-gate  # Windows/PowerShell: 1 GiB capture, verify, tamper and memory gate
 ```
 
 The unit tests use a real `git` binary against a throwaway repository in a temporary directory, so
-they exercise the actual behaviour of the collector rather than a mock of it. The manifest format is
-covered by a golden file:
+they exercise the actual behaviour of the collector rather than a mock of it. The legacy M1 manifest
+format is covered by a golden file, which can be regenerated explicitly:
 
 ```bash
 BUILDTRACE_WRITE_GOLDEN=1 go test ./internal/manifest -run TestWriteTheGoldenFile
 ```
+
+M2 adds the same independently computed directory golden on Windows and Linux, actual CLI offline
+verification, malformed-input and tamper tests. The 1 GiB run measured 44.04 MiB peak working set
+for capture and 7.61 MiB for verification. Method and limits are in the
+[validation report](docs/testing/m1-m2-validation.md).
 
 ## Project standards
 

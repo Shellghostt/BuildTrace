@@ -21,9 +21,7 @@ import (
 
 // SchemaVersion is the version of the manifest format this build produces.
 //
-// It is written into every manifest and checked when one is read. M2 adds
-// the digest field and enforces the version; until then the field is a
-// promise about the shape, not a check.
+// It is written into every manifest and enforced by the M2 verifier.
 const SchemaVersion = 1
 
 // Manifest is one build.
@@ -44,18 +42,19 @@ type Manifest struct {
 	Artifacts []Artifact `json:"artifacts"`
 }
 
-// Artifact is one file produced by the build.
+// Artifact is a file, directory or symlink produced by the build.
 type Artifact struct {
+	// Kind is file, directory or symlink. An omitted kind means file in v1.
+	Kind string `json:"kind,omitempty"`
 	// Name is the file name.
 	Name string `json:"name"`
 	// Path is the location of the file, relative to the repository root
 	// when the file is inside it, with forward slashes.
 	Path string `json:"path"`
-	// Size is the size of the file in bytes.
+	// Size is the byte count. Directories sum file bytes and normalized link target bytes.
 	Size int64 `json:"size"`
-	// Digest is the SHA-256 of the file. It is added in M2, when the
-	// hasher exists; it is absent in M1 rather than empty, so that a
-	// manifest cannot be mistaken for a verified one.
+	// Digest is the raw file SHA-256 or the canonical directory/symlink digest.
+	// Legacy M1 manifests omit it and cannot pass M2 verification.
 	Digest *Digest `json:"digest,omitempty"`
 }
 
