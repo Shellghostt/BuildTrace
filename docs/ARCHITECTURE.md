@@ -1,9 +1,9 @@
 # BuildTrace Architecture
 
-**Status: M3 implemented and verified on `feat/m3-implementation`.** M2 is merged into main.
+**Status: M1–M3 complete and merged into main.**
 Unsigned provenance recording/inspection, metadata collectors, deterministic manifests, file/directory/
-symlink hashing and offline unsigned manifest verification exist. Windows/Ubuntu/macOS CI passed;
-review is pending.
+symlink hashing and offline unsigned manifest verification exist. Windows/Ubuntu/macOS CI passed.
+The [merged main CI](https://github.com/Shellghostt/BuildTrace/actions/runs/44006031195) passed.
 Signing, identity policy, dependency discovery and SBOM generation remain later milestones.
 The authoritative specification is
 [PLAN.md](PLAN.md), and section 0 there is the current truth.
@@ -159,5 +159,14 @@ design.
 ## M3 validation
 
 Read [phase requirements](phases/M3.md), the [validation record](testing/m3-provenance.md) and
-[memory/profile evidence](benchmarks/m3-provenance.md). Local M3 gates and GitHub CI passed; review
-is pending. [Development tools](DEVELOPMENT-TOOLS.md) records actual coverage and limitations.
+[memory/profile evidence](benchmarks/m3-provenance.md). Local M3 gates and GitHub CI passed, and
+[PR #2](https://github.com/Shellghostt/BuildTrace/pull/2) is merged.
+[Development tools](DEVELOPMENT-TOOLS.md) records actual coverage and limitations.
+
+## M4 preparation
+
+[M4 requirements](phases/M4.md) and [proposed ADR 0006](adr/0006-m4-signing-and-offline-verification.md)
+prepare DSSE/local/keyless modes and offline verification with pinned trust roots and authenticated
+signing time. Certificate/OIDC identity is separate from the recorder's builder label. Signed recorder
+assertions do not witness the original build. Bundle format, trust/time/policy and dependency choices
+remain proposed; signing and signed verification are not implemented.

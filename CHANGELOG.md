@@ -9,6 +9,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- [M4 preparation](docs/phases/M4.md) and [proposed ADR 0006](docs/adr/0006-m4-signing-and-offline-verification.md)
+  for DSSE/local/keyless modes, signer policy, authenticated signing time and offline acceptance.
+  Documentation only; M4 remains not started. Current status records merged M3 and successful main CI.
 - [M3 requirements](docs/phases/M3.md) with phase boundaries, failure cases, ADR prerequisites and
   acceptance gates, plus a [development-tool audit](docs/DEVELOPMENT-TOOLS.md).
 - M3 unsigned `record` and offline `inspect`, using in-toto Statement v1/SLSA provenance v1 and
@@ -22,7 +25,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   checksums, a schema CI job and a separate validator vulnerability scan.
 - Extended 1 GiB and packaged-container checks for M3, parser fuzzing and Go allocation/heap profiles.
   [Validation](docs/testing/m3-provenance.md) passed locally and in Windows/Ubuntu/macOS CI on
-  2026-11-17; review is pending.
+  2026-11-17; M3 is merged through PR #2.
 
 - M2 streaming file SHA-256, canonical directory hashing and symlink entries without following targets.
 - `verify --manifest` with offline recomputation of kind, digest and size, stable JSON reports and

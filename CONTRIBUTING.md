@@ -9,8 +9,8 @@ Thanks for taking the time. This document is deliberately short and specific.
 2. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - how the pieces fit together.
 3. [docs/adr/](docs/adr/) - decisions that have already been argued about. Do not relitigate them
    without a new ADR.
-4. [docs/phases/M3.md](docs/phases/M3.md) - M3 scope and acceptance gates, with accepted ADR 0005 and
-   [validation evidence](docs/testing/m3-provenance.md).
+4. [docs/phases/M4.md](docs/phases/M4.md) - planned signing/trust policy, dependency order and acceptance;
+   preserve [M3 contracts](docs/phases/M3.md) and accepted ADR 0005. ADR 0006 remains proposed.
 5. [docs/DEVELOPMENT-TOOLS.md](docs/DEVELOPMENT-TOOLS.md) - CodeGraph freshness, static-analysis coverage
    and profiling appropriate to this repository's runtime.
 
