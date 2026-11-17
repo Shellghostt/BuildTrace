@@ -31,7 +31,7 @@ type Result struct {
 // Hash never follows an artifact symlink. Directory contents are opened through
 // an os.Root so that a replaced child cannot redirect a read outside the tree.
 func Hash(path string) (Result, error) {
-	info, err := os.Lstat(path)
+	info, err := observeArtifact(path)
 	if err != nil {
 		return Result{}, err
 	}
@@ -87,6 +87,20 @@ func Hash(path string) (Result, error) {
 		return Result{}, ErrChanged
 	}
 	return result, nil
+}
+
+func observeArtifact(path string) (fs.FileInfo, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, err
+	}
+	// On Windows, Lstat may defer loading file identity until SameFile is
+	// called. Resolve it during observation, before a later open or rename
+	// can make the cached path refer to a different file with equal metadata.
+	if (info.Mode().IsRegular() || info.IsDir()) && !os.SameFile(info, info) {
+		return nil, ErrChanged
+	}
+	return info, nil
 }
 
 func hashFile(f *os.File, before fs.FileInfo, buffer []byte) ([]byte, int64, error) {

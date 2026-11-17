@@ -2,7 +2,7 @@ BINARY := buildtrace
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 
-.PHONY: bootstrap build test race golden lint fmt vet run manifest memory-gate docker clean
+.PHONY: bootstrap build test race golden lint fmt vet run manifest memory-gate schema-setup schemas docker clean
 
 bootstrap:
 	go mod download
@@ -42,6 +42,14 @@ manifest: build
 
 memory-gate:
 	pwsh -File tests/bench/large-artifact.ps1
+
+# Reference schema tools are an isolated test dependency, never a CLI dependency.
+schema-setup:
+	go -C tests/schemas mod download
+
+# Run with GOPROXY=off GOSUMDB=off after setup to validate fixtures offline.
+schemas:
+	go -C tests/schemas test -mod=readonly -count=1 ./...
 
 docker:
 	docker build -t buildtrace:$(VERSION) .

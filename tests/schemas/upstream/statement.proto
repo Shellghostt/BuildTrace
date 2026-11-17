@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package in_toto_attestation.v1;
+
+import "google/protobuf/struct.proto";
+import "in_toto_attestation/v1/resource_descriptor.proto";
+
+
+option go_package = "github.com/in-toto/attestation/go/v1";
+option java_package = "io.github.intoto.attestation.v1";
+
+// Proto representation of the in-toto v1 Statement.
+// https://github.com/in-toto/attestation/tree/main/spec/v1
+// Validation of all fields is left to the users of this proto.
+message Statement {
+  // Expected to always be "https://in-toto.io/Statement/v1"
+  string type = 1 [json_name = "_type"];
+
+  repeated in_toto_attestation.v1.ResourceDescriptor subject = 2;
+
+  string predicate_type = 3;
+
+  google.protobuf.Struct predicate = 4;
+}

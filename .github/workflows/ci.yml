@@ -68,6 +68,29 @@ jobs:
         if: runner.os == 'Linux'
         run: go test ./internal/manifest -run '^$' -fuzz FuzzRead -fuzztime=10s
 
+      - name: Unsigned statement parser fuzz smoke
+        if: runner.os == 'Linux'
+        run: go test ./internal/attestation -run '^$' -fuzz FuzzRead -fuzztime=10s
+
+  schemas:
+    name: Offline provenance schemas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: tests/schemas/go.sum
+      - name: Set up pinned reference validator
+        run: make schema-setup
+      - name: Validate fixtures and schema pins offline
+        env:
+          GOTOOLCHAIN: 'local'
+          GOPROXY: 'off'
+          GOSUMDB: 'off'
+        run: make schemas
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -95,3 +118,6 @@ jobs:
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
+      - name: Audit isolated reference validator
+        working-directory: tests/schemas
+        run: govulncheck ./...

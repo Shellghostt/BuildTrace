@@ -1,0 +1,44 @@
+[
+  {
+    "file": "upstream/statement.proto",
+    "repository": "in-toto/attestation",
+    "commit": "50bf01716982189898823e90586075f37cd9bb7d",
+    "source": "protos/in_toto_attestation/v1/statement.proto",
+    "sha256": "8d508fd01afcbf00dbcc648d058953da0704e3a2f5daf7d946a6008e802086b4"
+  },
+  {
+    "file": "upstream/resource-descriptor.proto",
+    "repository": "in-toto/attestation",
+    "commit": "50bf01716982189898823e90586075f37cd9bb7d",
+    "source": "protos/in_toto_attestation/v1/resource_descriptor.proto",
+    "sha256": "246a5cf0ac8cc1223443aeb969e337ac12fd5ac1f062b90ba9170a6cdb83855f"
+  },
+  {
+    "file": "upstream/in-toto-provenance.proto",
+    "repository": "in-toto/attestation",
+    "commit": "50bf01716982189898823e90586075f37cd9bb7d",
+    "source": "protos/in_toto_attestation/predicates/provenance/v1/provenance.proto",
+    "sha256": "786c0b6f8471d297bb4c28736b3d53926c197762df8b0323c49ec38e55db89b0"
+  },
+  {
+    "file": "upstream/in-toto-LICENSE",
+    "repository": "in-toto/attestation",
+    "commit": "50bf01716982189898823e90586075f37cd9bb7d",
+    "source": "LICENSE",
+    "sha256": "b3a6ac899861c2c28a1abd5c7ea8733fefaed6938d730e099c42671386032aeb"
+  },
+  {
+    "file": "upstream/slsa-v1.2-provenance.proto",
+    "repository": "slsa-framework/slsa",
+    "commit": "19e4e2f005f871270c4f555fc47afecfb37f3efe",
+    "source": "docs/spec/v1.2/schema/provenance.proto",
+    "sha256": "ea548207a78bd81b809a449edd5ed36a011a665ca7d15831d1133fe674fc41de"
+  },
+  {
+    "file": "upstream/slsa-LICENSE.md",
+    "repository": "slsa-framework/slsa",
+    "commit": "19e4e2f005f871270c4f555fc47afecfb37f3efe",
+    "source": "LICENSE.md",
+    "sha256": "f40b1d00369c21b963293189b4617b5de439a11858541c07c620984634fb63b7"
+  }
+]
