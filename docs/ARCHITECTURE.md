@@ -1,6 +1,6 @@
 # BuildTrace Architecture
 
-**Status: M2 implemented, unreleased.** Metadata collectors, deterministic manifests, file/directory/
+**Status: M2 complete and merged into main.** Metadata collectors, deterministic manifests, file/directory/
 symlink hashing and offline unsigned manifest verification exist. Tests use real git and the actual
 CLI. Provenance generation, signing, identity policy and SBOM generation remain later milestones.
 The authoritative specification is
@@ -117,3 +117,8 @@ failure behaviour of each stage.
 
 See [PLAN.md](PLAN.md) section 4 (non-goals). If a component is not on that diagram, it is not part of the
 design.
+
+## M3 preparation
+
+M3 is **Not started**. Read [phase requirements](phases/M3.md) for planned contracts,
+ADR decisions and acceptance gates, and [development tools](DEVELOPMENT-TOOLS.md) for actual coverage.

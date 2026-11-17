@@ -26,6 +26,12 @@ updated: 2026-11-14
 
 ## 0. Machine context
 
+M2 is complete and merged into `main`; M3 is **Not started**. The
+[M3 requirements](phases/M3.md) clarify this plan's next phase and its acceptance gates.
+Resolve the listed ADR decisions before dependent implementation. The
+[development-tool audit](DEVELOPMENT-TOOLS.md) records actual coverage and profiling limits.
+This preparation changes documentation only; it does not establish any M3 behavior or release.
+
 ```yaml
 project: BuildTrace
 status: mvp
@@ -231,7 +237,7 @@ the commit is the thing being attested to.
   "predicateType": "https://slsa.dev/provenance/v1",
   "predicate": {
     "buildDefinition": {
-      "buildType": "https://buildtrace.dev/build/v1",
+      "buildType": "<project-controlled versioned recorder build-type URI; decide in M3 ADR>",
       "externalParameters": { "source": { "uri": "git+https://...", "commit": "9f3c2ab" } },
       "internalParameters": { "goVersion": "1.23.4" },
       "resolvedDependencies": [
@@ -239,13 +245,18 @@ the commit is the thing being attested to.
       ]
     },
     "runDetails": {
-      "builder": { "id": "https://github.com/shellghostt/buildtrace/.github/workflows/release.yml@refs/tags/v1.0.0" },
-      "metadata": { "invocationId": "01J8Z8Q9K3", "startedOn": "2026-11-13T09:58:00Z", "finishedOn": "2026-11-13T10:00:00Z" },
+      "builder": { "id": "local" },
+      "metadata": { "invocationId": "<explicit or deterministic recorder invocation ID>" },
       "byproducts": [{ "name": "buildtrace.json", "digest": { "sha256": "..." } }]
     }
   }
 }
 ```
+
+The attestation above is a format sketch, not an emitted or schema-validated fixture. M3 must define
+the recorder build type and field evidence in an ADR, omit unobserved byproducts/dependencies and never
+invent original build timestamps or workflow identity. The SLSA specification is 1.2 but its predicate URI
+remains `/v1`. See [M3 requirements](phases/M3.md) for the input/claim mapping and pinned schema checks.
 
 **DSSE envelope** (M4):
 
@@ -453,15 +464,18 @@ macOS execution remains CI validation; cross-platform builds are checked separat
 
 ### M3 — Provenance generation
 
-**Deliverable:** in-toto statement v1 with SLSA provenance v1 predicate, unsigned, `inspect` command.
+**Deliverable:** unsigned `record`, in-toto Statement v1 with SLSA provenance predicate v1 and offline `inspect`.
+
+Status: **Not started**. Follow [M3 requirements](phases/M3.md); arbitrary build execution and signing are excluded.
 
 **Acceptance criteria**
 
 - [ ] Output validates against the in-toto statement schema and the SLSA predicate schema
-- [ ] Every predicate field maps to a captured input (no derived guesses)
+- [ ] Every predicate field maps to observed input or a clearly identified caller assertion, with no guesses
 - [ ] `inspect` prints subject, builder, dependencies and build type
 - [ ] Golden-file tests for two fixtures
-- [ ] Statement is byte-identical for identical inputs apart from declared timestamps
+- [ ] Statement is byte-identical for identical inputs including pinned timestamps and invocation IDs
+- [ ] Unsigned `record`/`inspect` and malformed JSONL/signing requests have explicit offline CLI tests
 
 ### M4 — Signing and verification
 
@@ -519,6 +533,7 @@ identity policy.
 | BT-009 | Tamper tests | BT-008 | M2 | Done |
 | BT-010 | in-toto statement types in `pkg/intoto` | — | M3 | Not started |
 | BT-011 | SLSA predicate builder | BT-010 | M3 | Not started |
+| BT-011A | Unsigned `record` command and field/input mapping | BT-011, BT-007 | M3 | Not started |
 | BT-012 | `inspect` command | BT-011 | M3 | Not started |
 | BT-013 | Schema validation against upstream | BT-011 | M3 | Not started |
 | BT-014 | DSSE encoding and PAE | BT-010 | M4 | Not started |
@@ -596,7 +611,8 @@ and signed-attestation verification remain unimplemented.
 2. Never say verification proves an artifact is safe, trustworthy or unmodified **by a human attacker**. It
    checks digests against the supplied unsigned manifest in M2. Signer policy arrives in M4.
 3. Never claim reproducibility without the M6 test that produced it.
-4. An attestation claim that cannot be recomputed by a third party must be removed, not documented.
+4. Every attestation claim needs traceable evidence. Caller assertions must be labeled as such;
+   an observation of a checkout/toolchain does not authenticate the original build. Never fabricate fields.
 5. Update the README non-claims section whenever section 9.2 changes.
 6. Update status fields, roadmap and CHANGELOG in the same pull request.
 7. **Never describe the M1 manifest as proof of anything about the artifact.** It records a name, a path
@@ -623,8 +639,8 @@ and signed-attestation verification remain unimplemented.
 
 1. Read sections 0, 3, 9 and 10. The trust model is the design.
 2. `make build && ./bin/buildtrace version`.
-3. M1 is tagged and M2 is implemented on the feature branch. The next milestone is M3 provenance,
-   starting at BT-010. Preserve the canonical hashing contract and unsigned scope in ADR 0004.
+3. M1/M2 are merged into `main`. Read [M3 requirements](phases/M3.md), starting at BT-010 and the
+   recorder-contract ADR. Preserve the canonical hashing contract and unsigned scope in ADR 0004.
 4. Before adding any predicate field, answer: how would a third party recompute this?
 5. Never merge a verification path without a negative test for each failure reason.
 6. Manifest `schemaVersion: 1` is enforced. M2 emits digest/kind and rejects unknown versions.

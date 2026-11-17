@@ -6,7 +6,7 @@
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 ![Go](https://img.shields.io/badge/go-1.26-00ADD8?logo=go&logoColor=white)
 
-**Status: M2 implemented on the feature branch (unreleased).** BuildTrace records build metadata
+**Status: M2 complete and merged into main.** BuildTrace records build metadata
 and SHA-256 digests for files, directories and symlinks in a deterministic `buildtrace.json`.
 `verify --manifest` recomputes artifact kinds, digests and sizes offline. A match establishes
 consistency with the supplied unsigned manifest. Signatures and builder identity are not checked.
@@ -25,7 +25,7 @@ attested to them. BuildTrace generates that evidence and, more importantly, veri
 | Record the build environment (builder, OS, toolchain) | M1 | **Done** |
 | Write a deterministic `buildtrace.json` | M1 | **Done** |
 | Strip credentials from the recorded remote | M1 | **Done** |
-| Generate and verify artifact hashes | M2 | **Done**, unreleased |
+| Generate and verify artifact hashes | M2 | **Done (merged)** |
 | Generate provenance attestations (in-toto, SLSA) | M3 | Not started |
 | Verify artifact signatures | M4 | Not started |
 | CI/CD integration | M5 | Not started |
@@ -208,10 +208,13 @@ produce byte-identical manifests.
 
 ## Roadmap
 
+M3 is **Not started**. Read the [M3 requirements and acceptance gates](docs/phases/M3.md)
+before implementation and the [development-tool audit](docs/DEVELOPMENT-TOOLS.md) before debugging.
+
 | Milestone | Deliverable | Status |
 |---|---|---|
 | M1 | Build metadata collection and manifest generation | **Done** (v0.1.0) |
-| M2 | Artifact hashing and manifest verification | **Done**, unreleased |
+| M2 | Artifact hashing and manifest verification | **Done (merged)** |
 | M3 | in-toto provenance generation | Not started |
 | M4 | Signing and verification | Not started |
 | M5 | GitHub Actions integration | Not started |

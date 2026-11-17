@@ -9,6 +9,9 @@ Thanks for taking the time. This document is deliberately short and specific.
 2. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - how the pieces fit together.
 3. [docs/adr/](docs/adr/) - decisions that have already been argued about. Do not relitigate them
    without a new ADR.
+4. [docs/phases/M3.md](docs/phases/M3.md) - M3 scope, evidence, unresolved ADR decisions and acceptance gates.
+5. [docs/DEVELOPMENT-TOOLS.md](docs/DEVELOPMENT-TOOLS.md) - CodeGraph freshness, static-analysis coverage
+   and profiling appropriate to this repository's runtime.
 
 ## Ground rules
 
@@ -74,11 +77,12 @@ A change is done when:
 - it is covered by a test that fails without it;
 - `docs/PLAN.md` status fields and `README.md` roadmap reflect the new reality;
 - any user-visible behaviour is documented where a user would look for it;
-- every field added to the manifest maps to an input a third party can recompute;
+- every field added maps to traceable evidence; artifact digests are independently recomputable and
+  caller assertions are explicitly identified rather than presented as authenticated build history;
 - the "What this release does not prove" section of the README is updated when the answer changes.
 
-A field that cannot be recomputed by somebody else is not documentation, it is a guess. Do not add one
-to the manifest.
+Do not invent a field to fill the format. State which inputs were observed, which are caller assertions,
+and what an independent verifier can actually recompute or authenticate.
 
 ## Good first issues
 
