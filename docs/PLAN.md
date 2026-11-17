@@ -134,7 +134,8 @@ builder identity, and gets a pass or a specific failure reason — with no netwo
 
 ### v0.1 — MVP (M1–M4)
 
-`record` produces an unsigned in-toto statement plus a manifest; `verify` checks digests offline; M4 adds
+`record` produces an unsigned in-toto statement; `manifest` remains the separate unsigned M2 format.
+`verify --manifest` checks digests offline; M4 adds
 Sigstore keyless signing and signature verification with an identity policy.
 
 ### v1.0 (M5–M6)
@@ -228,6 +229,12 @@ the commit is the thing being attested to.
 
 **Attestation** (in-toto Statement v1, SLSA provenance v1 predicate):
 
+M3 construction follows [ADR 0005](adr/0005-m3-unsigned-recorder-contract.md) and the
+[versioned recorder contract](build-types/record/v1.md). It records artifact observations, an observed
+checkout and explicitly labeled optional caller assertions. Original build times, dependencies and
+byproducts are not invented. The minimal shape below is illustrative; committed goldens will provide
+schema-checked full examples.
+
 ```json
 {
   "_type": "https://in-toto.io/Statement/v1",
@@ -237,25 +244,21 @@ the commit is the thing being attested to.
   "predicateType": "https://slsa.dev/provenance/v1",
   "predicate": {
     "buildDefinition": {
-      "buildType": "<project-controlled versioned recorder build-type URI; decide in M3 ADR>",
-      "externalParameters": { "source": { "uri": "git+https://...", "commit": "9f3c2ab" } },
-      "internalParameters": { "goVersion": "1.23.4" },
-      "resolvedDependencies": [
-        { "uri": "git+https://github.com/shellghostt/eventrelay", "digest": { "gitCommit": "9f3c2ab" } }
-      ]
+      "buildType": "https://github.com/Shellghostt/BuildTrace/blob/main/docs/build-types/record/v1.md",
+      "externalParameters": { "artifacts": [{ "name": "dist/app", "path": "dist/app" }] },
+      "internalParameters": { "recorder": { "version": "<observed recorder version>" } }
     },
     "runDetails": {
-      "builder": { "id": "local" },
-      "metadata": { "invocationId": "<explicit or deterministic recorder invocation ID>" },
-      "byproducts": [{ "name": "buildtrace.json", "digest": { "sha256": "..." } }]
+      "builder": { "id": "https://github.com/Shellghostt/BuildTrace#local-recorder" },
+      "metadata": { "invocationId": "<explicit public ID or deterministic sha256:...>" }
     }
   }
 }
 ```
 
-The attestation above is a format sketch, not an emitted or schema-validated fixture. M3 must define
-the recorder build type and field evidence in an ADR, omit unobserved byproducts/dependencies and never
-invent original build timestamps or workflow identity. The SLSA specification is 1.2 but its predicate URI
+The attestation above is a format sketch, not an emitted or schema-validated fixture. The recorder
+build type and field evidence are defined in ADR 0005; unobserved byproducts/dependencies are omitted.
+The SLSA specification is 1.2 but its predicate URI
 remains `/v1`. See [M3 requirements](phases/M3.md) for the input/claim mapping and pinned schema checks.
 
 **DSSE envelope** (M4):
@@ -275,7 +278,10 @@ Stored as one JSON file per artifact set: `<artifact>.intoto.jsonl`.
 ## 8. Command surface and exit codes
 
 ```
-buildtrace record --artifact dist/app --out dist/app.intoto.jsonl [--commit auto] [--sign keyless|none]
+buildtrace record --artifact dist/app --out app.intoto.jsonl [--repo .] [--sign none]
+                  [--builder-id <public-uri>] [--invocation-id <public-id>]
+                  [--source-uri <uri> --source-commit <full-commit>]
+                  [--started-on <RFC3339> --finished-on <RFC3339>]
 buildtrace verify --artifact dist/app --attestation dist/app.intoto.jsonl
                    [--identity <workflow-ref>] [--issuer <oidc-issuer>] [--allow-unsigned]
 buildtrace inspect --attestation dist/app.intoto.jsonl [--json]
@@ -286,7 +292,7 @@ buildtrace version
 
 | Exit code | Meaning |
 |---|---|
-| 0 | M2: artifacts match unsigned manifest; M4 signed verification also checks signature/identity |
+| 0 | Manifest/unsigned statement generated, unsigned statement inspected, or artifacts match M2 manifest; M4 adds signed verification |
 | 1 | Verification failed: specific reason printed |
 | 2 | Invalid input: malformed attestation, missing artifact |
 | 3 | Tool error: I/O; unsupported manifest version specifically exits 2 in M2 |
