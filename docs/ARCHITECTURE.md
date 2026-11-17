@@ -1,8 +1,10 @@
 # BuildTrace Architecture
 
-**Status: M2 implemented, unreleased.** Metadata collectors, deterministic manifests, file/directory/
-symlink hashing and offline unsigned manifest verification exist. Tests use real git and the actual
-CLI. Provenance generation, signing, identity policy and SBOM generation remain later milestones.
+**Status: M3 implemented and verified on `feat/m3-implementation`.** M2 is merged into main.
+Unsigned provenance recording/inspection, metadata collectors, deterministic manifests, file/directory/
+symlink hashing and offline unsigned manifest verification exist. Windows/Ubuntu/macOS CI passed;
+review is pending.
+Signing, identity policy, dependency discovery and SBOM generation remain later milestones.
 The authoritative specification is
 [PLAN.md](PLAN.md), and section 0 there is the current truth.
 
@@ -10,11 +12,14 @@ The authoritative specification is
 
 An open-source build provenance and artifact verification system.
 
-"We built this binary from that commit" is a claim, not evidence. Provenance only means anything
-if someone else can verify it independently: the artifact digest, the inputs, and the identity that
-attested to them. BuildTrace generates that evidence and, more importantly, verifies it.
+BuildTrace records independently recomputable artifact digests and defines the evidence behind its
+metadata. Checkout observations and caller assertions do not authenticate the original build.
+M2 compares artifacts with unsigned manifests; M3 inspection parses unsigned statements.
 
 ## Shape
+
+This target diagram includes the external build runner and future M4 signing/identity components.
+M3 does not execute arbitrary build commands.
 
 ```mermaid
 flowchart LR
@@ -47,14 +52,23 @@ flowchart LR
     MAN --> JSON[buildtrace.json]
     JSON --> VERIFY[unsigned manifest verifier]
     FS --> VERIFY
+    SRC --> REC[unsigned recorder]
+    ART --> REC
+    TC --> REC
+    CLAIMS[explicit caller assertions] --> REC
+    REC --> STMT[in-toto / SLSA v1 JSONL]
+    STMT --> INSPECT[offline parser and formatter]
+    INSPECT --> REPORT[unsigned_statement / inspected]
 ```
 
 | Package | Responsibility |
 |---|---|
-| `internal/metadata` | The facts about a build: the commit, the dirty state, the normalised remote, the Go and git versions, the platform. An allowlist decides what is read; the environment is never dumped. |
+| `internal/metadata` | Observed checkout state and current recorder tool versions/platform. An allowlist decides what is read; the environment is never dumped. |
 | `internal/manifest` | Format v1, deterministic serialization, hashed artifact collection and bounded strict reader. |
 | `internal/hashing` | Raw file SHA-256 with a 1 MiB buffer; sorted canonical directory/symlink digests. |
 | `internal/verify` | Recompute kinds, sizes and digests, with stable failure reasons and unsigned scope. |
+| `internal/attestation` | Collect relative artifact observations, construct the unsigned recorder predicate and parse bounded JSONL offline. |
+| `pkg/intoto` | Standard-library-only Statement v1/SLSA provenance v1 wire types and compact serialization. |
 | `internal/cli` | The commands and their exit codes. It exists so that the exit codes and the output can be tested. |
 | `cmd/buildtrace` | A thin entry point that wires the standard streams into `internal/cli` and turns the returned code into a process exit code. |
 
@@ -78,6 +92,22 @@ unsupported versions. Relative paths resolve from `--root` (current directory by
 declared sizes/kinds are recomputed; metadata labels are not authenticated. Directory contents stream,
 while sorting keeps at most 100,000 entries. The byte format is specified in ADR 0004.
 
+M3 `record` reuses these canonical digests, but requires selected artifacts within the checkout root.
+It uses unique relative paths as subject names and emits no hostname, host root or environment dump.
+The shared hasher resolves Windows file identity during observation, before a later replacement can
+redirect a lazy identity lookup; canonical bytes and M2 formats are unchanged.
+
+The recorder separates observed checkout/artifact/tool metadata from optional source and original-build
+time assertions. It generates one compact LF-terminated statement, with a fixed field/array order and
+an explicit ID or the canonical statement hash with invocationId omitted. It has no original-build
+clock default, inferred dependencies/byproducts or authenticated builder identity.
+See the [field contract](build-types/record/v1.md) and accepted ADR 0005.
+
+M3 `inspect` reads exactly one LF/CRLF-terminated JSON line with 16 MiB, 64-level, 200,000-token and
+1,000-entry resource bounds. It rejects duplicate keys and unsupported statement/predicate URIs.
+Compatible unknown fields remain in the raw statement; an unknown build type has uninterpreted semantics.
+It runs no commands and opens no artifact subjects. Success is `unsigned_statement / inspected`.
+
 ## Failure behaviour
 
 | Failure | What happens |
@@ -90,7 +120,10 @@ while sorting keeps at most 100,000 entries. The byte format is specified in ADR
 | Artifact cannot be read during verification | Exit 3; missing artifacts specifically exit 2. |
 | The build timestamp is not RFC 3339 | Exit 2, explaining the expected format. |
 | The output file cannot be written | Exit 3. |
-| `record` or `inspect` is called | Exit 3, saying the command is planned for a later milestone. |
+| Malformed/bounded-out JSONL or unsupported statement/predicate URI | Exit 2, without a guessed interpretation. |
+| A signing mode other than `none` is requested | Exit 2 before collection; signing remains M4. |
+| Recording detects a changed artifact | Exit 2, asking the caller to stop writers and retry. |
+| Statement input cannot be read or output cannot be written | Exit 3; a missing input specifically exits 2. |
 | The working tree is dirty | Not a failure. `dirty: true` is recorded and a warning goes to stderr. |
 | `git` is not installed | The source is unavailable, so the command fails. The Go version is still known. |
 
@@ -104,6 +137,11 @@ A manifest gets uploaded, committed and attached to releases. Three rules follow
 - The one input where a credential can appear by accident is the remote URL, and its userinfo is
   removed before the URI is recorded.
 
+For M3, all network source/builder/invocation URI inputs also lose queries and fragments. Local source
+remotes are omitted. Original-build assertions enter only through defined flags, and explicit public
+IDs/URI paths remain the caller's responsibility. Inspection preserves its input statement; it is not
+a redaction service or authenticity check.
+
 The secret-exclusion test plants a fake token in the remote URL, in `GITHUB_TOKEN`, in `NPM_TOKEN`, in
 `AWS_SECRET_ACCESS_KEY` and in the builder id, and asserts that it appears nowhere in the manifest, in
 stdout or in stderr.
@@ -115,5 +153,11 @@ failure behaviour of each stage.
 
 ## What is deliberately absent
 
-See [PLAN.md](PLAN.md) section 4 (non-goals). If a component is not on that diagram, it is not part of the
+See [PLAN.md](PLAN.md) section 3 (non-goals). If a component is not on that diagram, it is not part of the
 design.
+
+## M3 validation
+
+Read [phase requirements](phases/M3.md), the [validation record](testing/m3-provenance.md) and
+[memory/profile evidence](benchmarks/m3-provenance.md). Local M3 gates and GitHub CI passed; review
+is pending. [Development tools](DEVELOPMENT-TOOLS.md) records actual coverage and limitations.

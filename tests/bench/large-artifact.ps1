@@ -12,6 +12,7 @@ try {
     New-Item -ItemType Directory -Path $taskDirectory | Out-Null
     $taskArtifact = Join-Path $taskDirectory 'artifact.bin'
     $taskManifest = Join-Path $taskDirectory 'manifest.json'
+    $taskStatement = Join-Path $taskDirectory 'artifact.intoto.jsonl'
     $taskChunk = [byte[]]::new(1MB)
     $taskHash = [System.Security.Cryptography.IncrementalHash]::CreateHash([System.Security.Cryptography.HashAlgorithmName]::SHA256)
     $taskFile = [System.IO.File]::Open($taskArtifact, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write)
@@ -52,7 +53,15 @@ try {
     if ($taskDocument.artifacts[0].size -ne 1GB -or $taskDocument.artifacts[0].digest.sha256 -ne $taskExpected) { throw 'Independent SHA-256 or byte count disagrees' }
     $taskVerify = Invoke-MeasuredCLI @('verify','--manifest',$taskManifest,'--root',$taskRepo,'--json')
     if ($taskVerify.exit -ne 0) { throw $taskVerify.stderr }
-    foreach ($taskRun in @($taskCapture,$taskVerify)) {
+    $taskRecord = Invoke-MeasuredCLI @('record','--repo',$taskRepo,'--artifact',$taskArtifact,'--out',$taskStatement,'--sign','none')
+    if ($taskRecord.exit -ne 0) { throw $taskRecord.stderr }
+    $taskProvenance = Get-Content -LiteralPath $taskStatement -Raw | ConvertFrom-Json
+    if ($taskProvenance.subject[0].digest.sha256 -ne $taskExpected -or $taskProvenance.predicate.buildDefinition.internalParameters.observedArtifacts[0].size -ne 1GB) { throw 'Recorded subject disagrees with independent digest/byte count' }
+    if ($taskProvenance.predicate.runDetails.metadata.startedOn -or $taskProvenance.predicate.runDetails.metadata.finishedOn) { throw 'Original build times were invented' }
+    $taskInspection = Invoke-MeasuredCLI @('inspect','--attestation',$taskStatement,'--json')
+    if ($taskInspection.exit -ne 0 -or ($taskInspection.stdout | ConvertFrom-Json).scope -ne 'unsigned_statement') { throw 'Unsigned inspection did not report its scope' }
+    # Only the long-running 1 GiB hashing processes have a sampled RSS gate.
+    foreach ($taskRun in @($taskCapture,$taskVerify,$taskRecord)) {
         if ($taskRun.peak_working_set_bytes -le 0 -or $taskRun.peak_working_set_bytes -ge 64MB) { throw 'Memory measurement is unavailable or exceeds 64 MiB' }
     }
     $taskFile = [System.IO.File]::Open($taskArtifact,[System.IO.FileMode]::Open,[System.IO.FileAccess]::ReadWrite)
@@ -62,8 +71,11 @@ try {
     Remove-Item -LiteralPath $taskArtifact
     $taskMissing = Invoke-MeasuredCLI @('verify','--manifest',$taskManifest,'--root',$taskRepo,'--json')
     if ($taskMissing.exit -ne 2) { throw 'Missing artifact did not exit 2' }
+    $taskMissingInspection = Invoke-MeasuredCLI @('inspect','--attestation',$taskStatement,'--json')
+    if ($taskMissingInspection.exit -ne 0 -or ($taskMissingInspection.stdout | ConvertFrom-Json).status -ne 'inspected') { throw 'Inspection incorrectly depended on the original artifact' }
     $taskResult = [pscustomobject]@{
-        artifact_bytes=1GB; sha256=$taskExpected; manifest=$taskCapture; verify=$taskVerify;
+        artifact_bytes=1GB; sha256=$taskExpected; manifest=$taskCapture; verify=$taskVerify; record=$taskRecord;
+        inspect_exit=$taskInspection.exit; inspect_after_artifact_removal_exit=$taskMissingInspection.exit;
         tamper_exit=$taskTamper.exit; missing_exit=$taskMissing.exit;
         method='Windows OS-reported peak working set, polled every 10 ms during each CLI run';
         go_toolchain='go1.26.11'; report_directory=$taskDirectory

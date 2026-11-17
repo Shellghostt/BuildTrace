@@ -2,20 +2,21 @@
 
 > An open-source build provenance and artifact verification system.
 
-![status](https://img.shields.io/badge/status-M2_hashing-orange)
+![status](https://img.shields.io/badge/status-M3_unsigned_provenance-orange)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 ![Go](https://img.shields.io/badge/go-1.26-00ADD8?logo=go&logoColor=white)
 
-**Status: M2 implemented on the feature branch (unreleased).** BuildTrace records build metadata
-and SHA-256 digests for files, directories and symlinks in a deterministic `buildtrace.json`.
-`verify --manifest` recomputes artifact kinds, digests and sizes offline. A match establishes
-consistency with the supplied unsigned manifest. Signatures and builder identity are not checked.
+**Status: M3 implemented and verified on `feat/m3-implementation`.** Windows, Ubuntu and macOS CI
+passed; review is pending and this work is unreleased. `record` writes unsigned in-toto Statement v1/SLSA provenance v1
+for existing artifacts, with checkout observations and explicit caller assertions.
+`inspect` parses that statement offline. M2 `manifest` and `verify --manifest` still record and
+recompute artifact kinds, SHA-256 digests and sizes.
 
 ## Why this exists
 
-"We built this binary from that commit" is a claim, not evidence. Provenance only means anything
-if someone else can verify it independently: the artifact digest, the inputs, and the identity that
-attested to them. BuildTrace generates that evidence and, more importantly, verifies it.
+"We built this binary from that commit" is a claim. BuildTrace records recomputable artifact digests
+and identifies which metadata was observed and which was supplied by the caller. M2 compares artifact
+bytes with an unsigned manifest; signing and authenticated builder identity remain M4.
 
 ## What it does today
 
@@ -25,8 +26,8 @@ attested to them. BuildTrace generates that evidence and, more importantly, veri
 | Record the build environment (builder, OS, toolchain) | M1 | **Done** |
 | Write a deterministic `buildtrace.json` | M1 | **Done** |
 | Strip credentials from the recorded remote | M1 | **Done** |
-| Generate and verify artifact hashes | M2 | **Done**, unreleased |
-| Generate provenance attestations (in-toto, SLSA) | M3 | Not started |
+| Generate and verify artifact hashes | M2 | **Done (merged)** |
+| Record and inspect unsigned in-toto/SLSA provenance | M3 | **Done; CI passed; review pending** |
 | Verify artifact signatures | M4 | Not started |
 | CI/CD integration | M5 | Not started |
 | Track dependencies | M6 | Not started |
@@ -38,30 +39,33 @@ attested to them. BuildTrace generates that evidence and, more importantly, veri
 This section is the most important one in this README, and it is reproduced from
 [docs/PLAN.md](docs/PLAN.md) section 9.2. It changes only when that section changes.
 
-- **The manifest is unsigned.** Anyone can edit both an artifact and its expected digest. A match
-  alone does not authenticate the build or its source commit.
-- **It does not prove the artifact is safe or trustworthy.** Nothing analyses its contents.
-- **It does not prove the build was reproducible.** Two builds of the same commit may differ, and
-  nothing in this release compares them.
-- **It does not attest to who built it.** The `builder.id` is whatever the caller passed on the command
-  line. It is a label, not an identity.
-- **It does not attest to the build's dependencies.** Nothing is recorded about the module graph.
-- **It is not a signature.** The manifest is plain JSON and can be edited by anyone.
+- **Manifests and M3 statements are unsigned.** Anyone can edit artifacts and their expected digests.
+  Matching a manifest or inspecting a statement does not authenticate the build or its source.
+- **Recording does not witness the original build.** Checkout state and tool versions are observed
+  during recording. Explicit source and original-build time inputs remain caller assertions.
+- **Inspection does not verify artifacts or signatures.** It parses bounded JSONL and reports
+  `scope: unsigned_statement`, `status: inspected`; it does not open subjects or compare their bytes.
+- **A builder label is not an authenticated identity.** `builder.id` is a public recorder label.
+  Signing and identity policy remain M4.
+- **Artifact safety is not established.** No vulnerability or malware analysis is performed.
+- **Reproducibility is not established.** No two-build comparison is performed; that verdict remains M6.
+- **Dependency completeness is not established.** M3 can record one explicitly asserted source
+  dependency; it does not discover the module graph, generate an SBOM or infer a workflow.
+- **Format compatibility is not a SLSA level.** Schema checks and deterministic output do not
+  authenticate build honesty, builder identity or compliance.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    SRC[Source repository] --> RUN[Build runner]
-    RUN --> META[Build metadata collector]
-    META --> ART[Artifact generator]
-    ART --> HASH[Artifact hashing]
-    HASH --> PROV[Provenance generator]
-    PROV --> SIGN[Signed attestation]
-    SIGN --> VER[Verification engine]
-    VER --> CLI[CLI verification]
-    VER --> CICD[CI/CD integration]
-    VER --> REP[Verification report]
+    REPO[Existing checkout] --> META[Observed metadata]
+    ART[Existing artifacts] --> HASH[M2 canonical hashing]
+    META --> REC[Unsigned recorder]
+    HASH --> REC
+    CLAIMS[Explicit caller assertions] --> REC
+    REC --> OUT[Statement v1 / SLSA provenance v1 JSONL]
+    OUT --> INSPECT[Offline parser and formatter]
+    INSPECT --> REPORT[Unsigned inspection report]
 ```
 
 Full reasoning, data model, API surface and failure behaviour are in [docs/PLAN.md](docs/PLAN.md).
@@ -69,13 +73,12 @@ The shape of what exists today is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md
 
 ## Engineering challenge
 
-Making build provenance verifiable and trustworthy, not just generating a JSON file that
-claims an artifact is authentic. Every field in an attestation must map to an input someone else can
-recompute.
+Each field must map to a defined input. Artifact digests can be independently recomputed; checkout
+observations can be compared with a checkout; caller assertions need separate evidence.
 
 ## Quickstart
 
-Requires Go 1.26+ and `git`.
+Use Go 1.26.11 and `git`. The repository pins the patched toolchain.
 
 ```bash
 make build
@@ -149,6 +152,43 @@ them with M2. Keep manifest output outside selected directory artifacts and stop
 The [canonical hashing contract](docs/adr/0004-m2-canonical-hashing-and-verification.md) defines directory
 and symlink bytes, including empty directories and a 100,000-entry bound.
 
+### Unsigned recording and inspection
+
+```sh
+./bin/buildtrace record --artifact dist/app --out app.intoto.jsonl --sign none
+./bin/buildtrace inspect --attestation app.intoto.jsonl
+./bin/buildtrace inspect --attestation app.intoto.jsonl --json
+```
+
+The unsigned default is `--sign none`; other signing modes exit 2. Recording needs git and existing
+artifacts within the repository root, but does not run a build or fetch anything from the network.
+Subjects use unique repository-relative names and M2 digests. Keep output outside selected artifacts
+and stop writers during hashing.
+
+Inspection needs neither git nor the original artifacts. Its JSON report includes
+`scope: unsigned_statement`, `status: inspected`, the parsed summary and the original `statement`,
+including compatible unknown fields. Unknown statement/predicate URIs fail; an unknown build type is
+displayed without interpreting its semantics.
+
+| Record flag | Default or requirement | Meaning |
+|---|---|---|
+| `--artifact` | required, repeatable; 1–1,000 | Existing file, directory or terminal symlink within the checkout root. |
+| `--repo` / `--out` | `.` / stdout | Checkout to observe and atomic JSONL destination. |
+| `--sign` | `none` | Only unsigned generation is supported in M3. |
+| `--builder-id` | BuildTrace `#local-recorder` URI | Public recorder label; HTTP(S) URI or opaque URN. |
+| `--invocation-id` | Canonical statement SHA-256 | Public explicit ID, or `sha256:<hex>` derived with that field omitted. |
+| `--source-uri` / `--source-commit` | paired optional inputs | Asserted original source and full 40- or 64-digit commit, labeled `caller_assertion`. |
+| `--started-on` / `--finished-on` | paired optional RFC 3339 inputs | Asserted original-build times, normalized to UTC with precision preserved. |
+
+Original build times are omitted unless explicitly supplied. Neither the clock nor `SOURCE_DATE_EPOCH`
+populates them. Equal artifact bytes, checkout/recorder metadata, IDs and time claims yield identical
+compact JSONL; pinning times alone does not make different hosts or toolchains identical.
+URI credentials, queries and fragments are removed; no hostname, host root or environment dump is
+emitted. Explicit IDs and URI paths must contain public metadata.
+
+The [versioned recorder contract](docs/build-types/record/v1.md) defines every field and parsing limit.
+The two [synthetic fixtures](tests/fixtures/m3/README.md) show observations alone and explicit claims.
+
 ### Container image
 
 `docker build -t buildtrace:local .` builds the static CLI in an Alpine runtime that includes `git`
@@ -161,10 +201,12 @@ docker run --rm --network none --read-only \
   buildtrace:local verify --manifest /work/buildtrace.json --root /work --json
 ```
 
-`bash tests/container/smoke.sh buildtrace:local` checks capture, deterministic hashing, offline
-verification and the negative exit codes using temporary container memory only. CI runs the same check.
+`bash tests/container/smoke.sh buildtrace:local` checks M2 hashing/verification and M3 unsigned
+record/inspect, deterministic output, parsing bounds, output protection and negative exit codes.
+The test uses temporary container memory, with network disabled and a read-only root filesystem.
+The CI workflow defines the same check.
 
-### Flags
+### Manifest flags
 
 | Flag | Default | Meaning |
 |---|---|---|
@@ -172,22 +214,23 @@ verification and the negative exit codes using temporary container memory only. 
 | `--out` | stdout | Where to write the manifest. |
 | `--repo` | `.` | The repository the build came from. Must be inside a git repository. |
 | `--built-at` | now | The build timestamp, RFC 3339. Overrides `SOURCE_DATE_EPOCH`. |
-| `--builder-id` | `local` | The identity of the builder. This is a label, not an attestation. |
+| `--builder-id` | `local` | A builder label; no identity is authenticated. |
 
-The build timestamp can also be pinned with the `SOURCE_DATE_EPOCH` environment variable, which is the
-convention reproducible-build tooling uses. With the timestamp pinned, two runs over the same inputs
-produce byte-identical manifests.
+The M2 manifest timestamp can also be pinned with `SOURCE_DATE_EPOCH`. With all metadata and artifact
+inputs equal, including that timestamp, two runs produce byte-identical manifests. M3 uses the
+separate original-build time claim policy described above.
 
 ### Exit codes
 
 | Code | Meaning |
 |---|---|
-| 0 | Manifest written, or artifacts match the unsigned manifest. |
+| 0 | Manifest/unsigned statement written, unsigned statement inspected, or artifacts match the M2 manifest. |
 | 1 | Verification mismatch: `digest_mismatch`, `kind_mismatch` or `size_mismatch`. |
-| 2 | Invalid input, missing artifact, malformed manifest or unsupported schema version. |
-| 3 | Tool error: an unwritable output file, or a command that is not implemented yet. |
+| 2 | Invalid input, missing artifact, unsupported format/signing mode or malformed/bounded-out JSONL. |
+| 3 | Tool or I/O error, including unreadable input and unwritable output. |
 
-`record` and `inspect`, and verification of signed attestations, remain later milestones.
+Verification of signed attestations remains M4. M3 generation and inspection do not return a
+provenance verification verdict.
 
 ## Repository layout
 
@@ -199,20 +242,24 @@ produce byte-identical manifests.
 | `internal/manifest` | The `buildtrace.json` model, serialiser and artifact collection |
 | `internal/testrepo` | Throwaway git repositories for the tests |
 | `internal/hashing` | Artifact hashing and directory determinism (M2) |
-| `internal/attestation` | Statement and predicate construction (M3) |
+| `internal/attestation` | M3 artifact observations, statement construction and bounded offline inspection |
 | `internal/signing` | Sigstore keyless and local key signing (M4) |
 | `internal/verify` | Unsigned manifest comparison (M2); signature and policy checks remain M4 |
 | `internal/sbom` | CycloneDX generation (M6) |
 | `pkg/intoto` | in-toto statement types, no external dependency needed to read them (M3) |
-| `tests/fixtures` | Committed artifacts for offline verification tests (M4) |
+| `tests/fixtures/m3` | Two synthetic unsigned provenance goldens |
+| `tests/schemas` | Isolated pinned upstream validators; no CLI runtime dependency |
 
 ## Roadmap
+
+M3 is **implemented and verified locally and in CI**. Read the [acceptance evidence](docs/testing/m3-provenance.md)
+and [phase contract](docs/phases/M3.md). Review remains a merge gate.
 
 | Milestone | Deliverable | Status |
 |---|---|---|
 | M1 | Build metadata collection and manifest generation | **Done** (v0.1.0) |
-| M2 | Artifact hashing and manifest verification | **Done**, unreleased |
-| M3 | in-toto provenance generation | Not started |
+| M2 | Artifact hashing and manifest verification | **Done (merged)** |
+| M3 | Unsigned in-toto/SLSA record and inspect | **Done; CI passed; review pending** |
 | M4 | Signing and verification | Not started |
 | M5 | GitHub Actions integration | Not started |
 | M6 | SBOM support and reproducibility checks | Not started |
@@ -225,7 +272,10 @@ the README is a bug.
 ```bash
 make test
 make race
-make memory-gate  # Windows/PowerShell: 1 GiB capture, verify, tamper and memory gate
+make lint
+make memory-gate  # Windows/PowerShell: 1 GiB manifest, verify, record and memory gate
+make schema-setup
+GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off make schemas
 ```
 
 The unit tests use a real `git` binary against a throwaway repository in a temporary directory, so
@@ -240,6 +290,14 @@ M2 adds the same independently computed directory golden on Windows and Linux, a
 verification, malformed-input and tamper tests. The 1 GiB run measured 44.04 MiB peak working set
 for capture and 7.61 MiB for verification. Method and limits are in the
 [validation report](docs/testing/m1-m2-validation.md).
+
+M3 adds two byte-for-byte goldens, isolated offline upstream format checks, strict bounded JSONL
+tests and real CLI/container record/inspect checks. Native Windows `make race` now passes with a
+64-bit MSYS2 UCRT64 compiler. The final 1 GiB recording run used 9.09 MiB peak working set, below the
+64 MiB gate. Commands, test mapping, schema pins and limitations are in
+[M3 validation](docs/testing/m3-provenance.md) and [memory/profiling evidence](docs/benchmarks/m3-provenance.md).
+On Windows, use `VERSION=m3-local` with Make targets to bypass the existing Unix version-discovery
+expression, and use the pinned compiler/offline setup documented in those reports.
 
 ## Project standards
 

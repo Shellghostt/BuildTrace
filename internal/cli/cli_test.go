@@ -323,16 +323,16 @@ func TestVersionPrintsTheVersion(t *testing.T) {
 	}
 }
 
-func TestTheLaterCommandsSayTheyAreNotImplemented(t *testing.T) {
+func TestM3CommandsRequireTheirInputs(t *testing.T) {
 	for _, command := range []string{"record", "inspect"} {
 		t.Run(command, func(t *testing.T) {
 			got := run(t, &App{}, command)
 
-			if got.code != ExitToolError {
-				t.Fatalf("expected exit %d, got %d", ExitToolError, got.code)
+			if got.code != ExitInvalidInput {
+				t.Fatalf("expected exit %d, got %d", ExitInvalidInput, got.code)
 			}
-			if !strings.Contains(got.stderr, "not implemented") {
-				t.Fatalf("expected the tool to say it is not implemented, got %q", got.stderr)
+			if !strings.Contains(got.stderr, "requires") {
+				t.Fatalf("expected the tool to name the required input, got %q", got.stderr)
 			}
 			if got.stdout != "" {
 				t.Fatalf("expected nothing on stdout, got %q", got.stdout)

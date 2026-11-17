@@ -14,7 +14,7 @@ depends_on:
   - Sigstore (signing, M4)
   - GitHub Actions (first CI integration, M5)
 created: 2026-11-13
-updated: 2026-11-14
+updated: 2026-11-17
 ---
 
 # BuildTrace — Implementation Plan
@@ -26,16 +26,23 @@ updated: 2026-11-14
 
 ## 0. Machine context
 
+M2 is merged into `main`. M3 is **implemented and verified locally and in CI** on
+`feat/m3-implementation`, unreleased, with review pending.
+[M3 validation](testing/m3-provenance.md) maps the phase's acceptance gates to executed checks.
+[ADR 0005](adr/0005-m3-unsigned-recorder-contract.md) and the
+[versioned recorder contract](build-types/record/v1.md) define the unsigned operation.
+The [development-tool audit](DEVELOPMENT-TOOLS.md) records actual coverage and profiling limits.
+
 ```yaml
 project: BuildTrace
 status: mvp
 version: 0.1.0
 builds: true
-functional: partial            # metadata, hashing and unsigned manifest verification; no signing
+functional: partial            # metadata, hashing, unsigned manifest checks and provenance inspection
 
 implemented:
   - repository skeleton
-  - cli binary with the manifest and version commands
+  - cli binary with manifest, verify --manifest, record, inspect and version
   - git metadata collector: commit, dirty state, normalised remote uri
   - toolchain and platform collector: go version, git version, os, arch, host
   - manifest model and deterministic serialiser (internal/manifest)
@@ -47,10 +54,15 @@ implemented:
   - verify --manifest with kind, byte count and digest checks, offline
   - strict manifest v1 reader, stable JSON reports and tamper tests
   - 1 GiB memory gate, portable directory golden and parser fuzzing
+  - unsigned in-toto Statement v1 and SLSA provenance v1 recorder
+  - explicit source/time assertions, deterministic recording IDs and relative subjects
+  - bounded offline inspect with unsigned_statement / inspected scope
+  - two synthetic goldens and isolated pinned upstream format validation
+  - native Windows race validation with a 64-bit UCRT64 compiler
+  - passing Windows/Ubuntu/macOS CI race, offline schema, image, lint and security jobs
 
 not_implemented:
-  - in-toto statement and slsa predicate -- M3
-  - record, inspect and signed-attestation verification -- M3 and M4
+  - signed-attestation verification -- M4
   - signing, dsse envelopes, sigstore -- M4
   - identity policy -- M4
   - github actions integration -- M5
@@ -63,7 +75,7 @@ source_of_truth:
   architecture: docs/ARCHITECTURE.md
   decisions: docs/adr/
   manifest_format: internal/manifest/
-  formats: pkg/intoto/                     # M3; still empty in M1
+  formats: pkg/intoto/                     # implemented standard-library-only M3 wire types
   status: README.md#roadmap
 
 forbidden_claims:
@@ -71,12 +83,13 @@ forbidden_claims:
   - "proves the artifact is safe"
   - "guarantees reproducibility"
   - verification without checking the subject digest against the artifact
-  - any signature or provenance claim before M4
+  - authenticated original build history or builder identity from unsigned metadata
+  - provenance verification from inspect or schema validation
   - a digest field in an M1 manifest: M1 does not hash anything
 
 if_uncertain:
-  - every attestation field must map to an input a third party can recompute
-  - if a claim cannot be verified offline, it does not belong in the attestation
+  - every field must map to a defined observation or explicitly identified caller assertion
+  - state what can be recomputed and what needs independent evidence
   - if the implementation does not do it, the README does not say it
 ```
 
@@ -84,8 +97,9 @@ if_uncertain:
 
 ## 1. What this is
 
-A CLI that records how an artifact was built and produces a signed, in-toto-compatible attestation — and,
-more importantly, verifies one.
+A CLI that records existing artifacts, checkout observations and explicit caller claims in unsigned
+in-toto-compatible statements. M2 verifies artifact bytes against an unsigned manifest; signing and
+authenticated identity policy remain M4.
 
 One-line description: *An open-source build provenance and artifact verification system.*
 
@@ -108,14 +122,14 @@ modified afterwards.
 | Downstream consumer | Verify provenance offline before deploying |
 | Security team | A policy gate: only artifacts from our builder identity may reach production |
 
-**Success looks like.** A consumer downloads a binary and an attestation, runs one command with a pinned
+**M4 success looks like.** A consumer downloads a binary and an attestation, runs one command with a pinned
 builder identity, and gets a pass or a specific failure reason — with no network access required.
 
 ---
 
 ## 3. Non-goals
 
-- **Not a build system.** It records builds; it does not run them.
+- **Not a build system.** It records existing artifacts and metadata; it does not run arbitrary builds.
 - **Not an artifact registry.** Storage is somebody else's job (release assets, OCI registry, S3).
 - **Not a vulnerability scanner.** SBOM generation is supported; CVE analysis is not.
 - **Not a transparency log service.** Sigstore's log may be used; we do not run one.
@@ -128,7 +142,8 @@ builder identity, and gets a pass or a specific failure reason — with no netwo
 
 ### v0.1 — MVP (M1–M4)
 
-`record` produces an unsigned in-toto statement plus a manifest; `verify` checks digests offline; M4 adds
+`record` produces an unsigned in-toto statement; `manifest` remains the separate unsigned M2 format.
+`verify --manifest` checks digests offline; M4 adds
 Sigstore keyless signing and signature verification with an identity policy.
 
 ### v1.0 (M5–M6)
@@ -163,6 +178,9 @@ attestations (not the ecosystem standard).
 
 ## 6. Architecture
 
+This is the target architecture through M6; signing and identity policy are not implemented in M3.
+The current unsigned data path is in [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ```mermaid
 flowchart LR
     SRC[Source repository] --> RUN[Build runner]
@@ -183,9 +201,9 @@ flowchart LR
 
 | Component | Responsibility | Must never |
 |---|---|---|
-| Metadata collector | Git commit, dirty state, builder identity, toolchain versions, timestamps | Read secrets or environment values that are not explicitly allowlisted |
+| Metadata collector | Checkout commit/dirty state/remote and current recorder tool versions | Infer original build tools, source or authenticated identity |
 | Hasher | SHA-256 of each artifact, streamed | Load whole artifacts into memory |
-| Provenance generator | Build the statement and predicate | Invent fields that cannot be recomputed |
+| Provenance generator | Build the unsigned statement with defined observations and explicit assertions | Invent original build history or present caller claims as observations |
 | Signer | DSSE envelope, keyless or local | Sign a payload it did not construct |
 | Verifier | Signature, identity, subject digest, dependency commit | Trust the attestation's self-description |
 | SBOM generator | CycloneDX from detected dependencies (M6) | Claim completeness |
@@ -222,30 +240,17 @@ the commit is the thing being attested to.
 
 **Attestation** (in-toto Statement v1, SLSA provenance v1 predicate):
 
-```json
-{
-  "_type": "https://in-toto.io/Statement/v1",
-  "subject": [
-    { "name": "eventrelay-linux-amd64", "digest": { "sha256": "b1946ac92492..." } }
-  ],
-  "predicateType": "https://slsa.dev/provenance/v1",
-  "predicate": {
-    "buildDefinition": {
-      "buildType": "https://buildtrace.dev/build/v1",
-      "externalParameters": { "source": { "uri": "git+https://...", "commit": "9f3c2ab" } },
-      "internalParameters": { "goVersion": "1.23.4" },
-      "resolvedDependencies": [
-        { "uri": "git+https://github.com/shellghostt/eventrelay", "digest": { "gitCommit": "9f3c2ab" } }
-      ]
-    },
-    "runDetails": {
-      "builder": { "id": "https://github.com/shellghostt/buildtrace/.github/workflows/release.yml@refs/tags/v1.0.0" },
-      "metadata": { "invocationId": "01J8Z8Q9K3", "startedOn": "2026-11-13T09:58:00Z", "finishedOn": "2026-11-13T10:00:00Z" },
-      "byproducts": [{ "name": "buildtrace.json", "digest": { "sha256": "..." } }]
-    }
-  }
-}
-```
+M3 construction follows [ADR 0005](adr/0005-m3-unsigned-recorder-contract.md) and the
+[versioned recorder contract](build-types/record/v1.md). It records artifact observations, an observed
+checkout and explicitly labeled optional caller assertions. Original build times, dependencies and
+byproducts are not invented. The committed
+[observation-only golden](../tests/fixtures/m3/observed.intoto.jsonl) and
+[explicit-claims golden](../tests/fixtures/m3/claimed.intoto.jsonl) are complete, schema-checked examples.
+Their metadata is [synthetic test input](../tests/fixtures/m3/README.md), not actual project build history.
+The recorder build type and field evidence are defined in ADR 0005; unobserved
+byproducts/dependencies are omitted.
+The SLSA specification is 1.2 but its predicate URI
+remains `/v1`. See [M3 requirements](phases/M3.md) for the input/claim mapping and pinned schema checks.
 
 **DSSE envelope** (M4):
 
@@ -257,28 +262,37 @@ the commit is the thing being attested to.
 }
 ```
 
-Stored as one JSON file per artifact set: `<artifact>.intoto.jsonl`.
+M3 stores one compact unsigned statement per artifact set as `<artifact>.intoto.jsonl`, ending in LF.
+Its bounded reader also accepts CRLF. DSSE envelopes remain M4.
 
 ---
 
 ## 8. Command surface and exit codes
 
 ```
-buildtrace record --artifact dist/app --out dist/app.intoto.jsonl [--commit auto] [--sign keyless|none]
-buildtrace verify --artifact dist/app --attestation dist/app.intoto.jsonl
-                   [--identity <workflow-ref>] [--issuer <oidc-issuer>] [--allow-unsigned]
+buildtrace record --artifact dist/app --out app.intoto.jsonl [--repo .] [--sign none]
+                  [--builder-id <public-uri>] [--invocation-id <public-id>]
+                  [--source-uri <uri> --source-commit <full-commit>]
+                  [--started-on <RFC3339> --finished-on <RFC3339>]
 buildtrace inspect --attestation dist/app.intoto.jsonl [--json]
 buildtrace manifest --artifact dist/app --out buildtrace.json
 buildtrace verify --manifest buildtrace.json [--root <dir>] [--json]
 buildtrace version
 ```
 
+The following signed-attestation command is planned for M4 and is currently rejected:
+
+```
+buildtrace verify --artifact dist/app --attestation dist/app.intoto.jsonl
+                   [--identity <workflow-ref>] [--issuer <oidc-issuer>] [--allow-unsigned]
+```
+
 | Exit code | Meaning |
 |---|---|
-| 0 | M2: artifacts match unsigned manifest; M4 signed verification also checks signature/identity |
+| 0 | Manifest/unsigned statement generated, unsigned statement inspected, or artifacts match M2 manifest; M4 adds signed verification |
 | 1 | Verification failed: specific reason printed |
-| 2 | Invalid input: malformed attestation, missing artifact |
-| 3 | Tool error: I/O; unsupported manifest version specifically exits 2 in M2 |
+| 2 | Invalid input, malformed/bounded-out JSONL, missing artifact, unsupported format or M3 signing mode |
+| 3 | Tool or I/O error; unsupported manifest versions specifically exit 2 in M2 |
 
 Verification output is line-oriented and machine-readable with `--json`; the human form names the exact check
 that failed.
@@ -293,6 +307,10 @@ M2 unsigned mode checks each artifact's kind, digest and byte count against a su
 Success declares `scope: unsigned_manifest` and `status: matched`. Source metadata, builder labels,
 signatures and dependencies are not authenticated. The full signed pipeline below remains M4.
 
+M3 generation recomputes subject digests while recording. M3 inspection performs only bounded format
+parsing, with `scope: unsigned_statement`, `status: inspected`. It neither opens artifacts nor checks
+content digests, signatures or source/identity claims. Schema checks establish format compatibility only.
+
 Given an artifact `A`, an attestation `S`, and a policy `P(identity, issuer)`:
 
 1. `S` is well formed and `predicateType` is a known provenance type.
@@ -304,20 +322,24 @@ Given an artifact `A`, an attestation `S`, and a policy `P(identity, issuer)`:
 
 ### 9.2 What verification does **not** prove
 
-- M2 manifests are unsigned. An attacker can edit both artifact and expected digest; a match alone
-  does not authenticate the build, source commit or builder identity.
-
-- That the build was honest. A compromised builder can sign a lie. Provenance shifts trust to the builder
-  identity, it does not eliminate it.
-- That the artifact is safe. No vulnerability or malware analysis is performed.
-- That the source commit is the one that was reviewed. Branch protection is a separate control.
-- That the artifact is the only one built. Reproducibility checking is M6 and is a separate verdict.
-- That the signature is still valid after key revocation, unless a timestamp/transparency proof is checked
-  (post-1.0).
+- **Manifests and M3 statements are unsigned.** Anyone can edit artifacts and their expected digests.
+  Matching a manifest or inspecting a statement does not authenticate the build or its source.
+- **Recording does not witness the original build.** Checkout state and tool versions are observed
+  during recording. Explicit source and original-build time inputs remain caller assertions.
+- **Inspection does not verify artifacts or signatures.** It parses bounded JSONL and reports
+  `scope: unsigned_statement`, `status: inspected`; it does not open subjects or compare their bytes.
+- **A builder label is not an authenticated identity.** `builder.id` is a public recorder label.
+  Signing and identity policy remain M4.
+- **Artifact safety is not established.** No vulnerability or malware analysis is performed.
+- **Reproducibility is not established.** No two-build comparison is performed; that verdict remains M6.
+- **Dependency completeness is not established.** M3 can record one explicitly asserted source
+  dependency; it does not discover the module graph, generate an SBOM or infer a workflow.
+- **Format compatibility is not a SLSA level.** Schema checks and deterministic output do not
+  authenticate build honesty, builder identity or compliance.
 
 This list belongs in the README, not only in the plan. It is the single most important text in the project.
 
-### 9.3 Verification order (fail fast, fail specifically)
+### 9.3 Signed verification order (M4)
 
 ```
 1. parse envelope        -> invalid_input
@@ -430,8 +452,8 @@ means in M1 is deliberately narrow, because the next milestone is the one that m
   deliberately excluded, because they would point the collector at a different repository than the one
   the user named.
 
-At the M1 tag, `record`, `verify` and `inspect` were unimplemented. M2 now implements only
-`verify --manifest`; signed-attestation verification and the other commands remain later milestones.
+At the M1 tag, `record`, `verify` and `inspect` were unimplemented. M2 implements
+`verify --manifest`; M3 adds unsigned `record` and `inspect`. Signed-attestation verification remains M4.
 
 ### M2 — Artifact hashing and manifest verification
 
@@ -453,15 +475,20 @@ macOS execution remains CI validation; cross-platform builds are checked separat
 
 ### M3 — Provenance generation
 
-**Deliverable:** in-toto statement v1 with SLSA provenance v1 predicate, unsigned, `inspect` command.
+**Deliverable:** unsigned `record`, in-toto Statement v1 with SLSA provenance predicate v1 and offline `inspect`.
+
+Status: **Implemented and verified locally and in CI**, unreleased on `feat/m3-implementation`.
+[M3 validation](testing/m3-provenance.md) records the exact source commit and test mapping;
+GitHub CI passed; review remains pending. Arbitrary build execution and signing are excluded.
 
 **Acceptance criteria**
 
-- [ ] Output validates against the in-toto statement schema and the SLSA predicate schema
-- [ ] Every predicate field maps to a captured input (no derived guesses)
-- [ ] `inspect` prints subject, builder, dependencies and build type
-- [ ] Golden-file tests for two fixtures
-- [ ] Statement is byte-identical for identical inputs apart from declared timestamps
+- [x] Output validates against the in-toto statement schema and the SLSA predicate schema
+- [x] Every predicate field maps to observed input or a clearly identified caller assertion, with no guesses
+- [x] `inspect` prints subject, builder, dependencies and build type
+- [x] Golden-file tests for two fixtures
+- [x] Statement is byte-identical for identical inputs including pinned timestamps and invocation IDs
+- [x] Unsigned `record`/`inspect` and malformed JSONL/signing requests have explicit offline CLI tests
 
 ### M4 — Signing and verification
 
@@ -517,10 +544,11 @@ identity policy.
 | BT-007 | Directory hashing with deterministic order | BT-006 | M2 | Done |
 | BT-008 | Manifest verification | BT-004, BT-006 | M2 | Done |
 | BT-009 | Tamper tests | BT-008 | M2 | Done |
-| BT-010 | in-toto statement types in `pkg/intoto` | — | M3 | Not started |
-| BT-011 | SLSA predicate builder | BT-010 | M3 | Not started |
-| BT-012 | `inspect` command | BT-011 | M3 | Not started |
-| BT-013 | Schema validation against upstream | BT-011 | M3 | Not started |
+| BT-010 | in-toto statement types in `pkg/intoto` | — | M3 | Done; CI passed |
+| BT-011 | SLSA predicate builder | BT-010 | M3 | Done; CI passed |
+| BT-011A | Unsigned `record` command and field/input mapping | BT-011, BT-007 | M3 | Done; CI passed |
+| BT-012 | `inspect` command | BT-011 | M3 | Done; CI passed |
+| BT-013 | Schema validation against upstream | BT-011 | M3 | Done; CI passed |
 | BT-014 | DSSE encoding and PAE | BT-010 | M4 | Not started |
 | BT-015 | Local key signer and verifier | BT-014 | M4 | Not started |
 | BT-016 | Sigstore keyless signer | BT-014 | M4 | Not started |
@@ -540,17 +568,23 @@ identity policy.
 
 ## 14. Testing strategy
 
-- **Golden formats:** every produced statement is compared against a committed expected file.
-- **Tamper matrix:** modify artifact, modify payload, swap signature, swap subject, replay a valid envelope
-  onto a different artifact. Each must fail with the documented reason.
-- **Cross-implementation check:** verify our attestation with `cosign`/`slsa-verifier` where possible.
-  If another tool rejects our output, our output is wrong.
-- **Offline test:** verification runs with the network disabled in CI.
-- **Determinism:** same inputs, same statement, except declared timestamps.
+- **Golden formats:** two synthetic M3 statements are compared byte for byte with committed fixtures.
+- **Tamper matrix:** M2 detects artifact byte/kind/size mismatch. Payload/signature/replay checks belong
+  to the future M4 signed verifier; unsigned M3 inspection does not claim to perform them.
+- **Cross-implementation check:** M3 fixtures pass the isolated pinned upstream Protobuf JSON
+  validators via `make schemas`. `cosign`/`slsa-verifier` signature/identity checks require M4 inputs.
+- **Offline test:** packaged M2 verification and M3 record/inspect execute with network disabled.
+  Schema validation uses cached dependencies with module/schema fetching disabled after setup.
+- **Determinism:** equal bytes, metadata, IDs and declared times yield the same statement.
+- **Bounds and mutation:** malformed/duplicate/oversized JSONL fails, and hashing retains M2 mutation
+  guards. Windows file identity is captured eagerly; a deterministic replacement regression passes.
 
 ---
 
 ## 15. Security and threat model
+
+Signing/identity mitigations below describe M4 controls. M3 statements remain mutable unsigned data;
+recording and inspection do not enforce signer policy.
 
 | Threat | Mitigation |
 |---|---|
@@ -559,8 +593,9 @@ identity policy.
 | Substituted builder | Builder identity checked against policy, not merely present |
 | TOCTOU between hash and upload | Hash immediately before signing; upload the exact hashed bytes |
 | Key compromise | Keyless short-lived certificates preferred; local keys documented as higher risk; revocation post-1.0 |
-| Secret leakage into manifest | Allowlist-based field capture, tests with fake tokens |
+| Secret leakage into output | Allowlisted capture; M3 URI credentials/query/fragment removal and fake-token tests |
 | Malicious artifact path traversal | Paths normalised; symlinks not followed |
+| Malicious unsigned JSONL | 16 MiB, 64 nesting levels, 200,000 tokens and bounded resource lists; duplicate keys rejected |
 | False assurance | Section 9.2 is reproduced verbatim in the README |
 
 ---
@@ -576,7 +611,7 @@ identity policy.
 
 **Open questions:**
 
-1. Should `record` fail when the working tree is dirty? *Current: warn, set `dirty: true`, allow override.*
+1. Should `record` fail when the working tree is dirty? *Current: warn, set observed `dirty: true`, continue.*
 2. Where do attestations live for OCI images? *Current: post-1.0.*
 3. Do we embed Rekor inclusion proofs in v1.0? *Current: no, documented as a gap.*
 
@@ -587,7 +622,8 @@ identity policy.
 **Facts:** the binary builds a `buildtrace.json` that records the commit, the dirty state, the normalised
 remote, builder and toolchain, plus artifact kind, size and SHA-256. M2 verification checks artifacts
 against an unsigned v1 manifest offline. It does not sign or authenticate metadata. `record`, `inspect`
-and signed-attestation verification remain unimplemented.
+now generate/parse unsigned in-toto/SLSA statements with defined observations and caller assertions.
+Signed-attestation verification remains unimplemented; M3 inspection is not a verification verdict.
 
 **Rules:**
 
@@ -596,7 +632,8 @@ and signed-attestation verification remain unimplemented.
 2. Never say verification proves an artifact is safe, trustworthy or unmodified **by a human attacker**. It
    checks digests against the supplied unsigned manifest in M2. Signer policy arrives in M4.
 3. Never claim reproducibility without the M6 test that produced it.
-4. An attestation claim that cannot be recomputed by a third party must be removed, not documented.
+4. Every attestation claim needs traceable evidence. Caller assertions must be labeled as such;
+   an observation of a checkout/toolchain does not authenticate the original build. Never fabricate fields.
 5. Update the README non-claims section whenever section 9.2 changes.
 6. Update status fields, roadmap and CHANGELOG in the same pull request.
 7. **Never describe the M1 manifest as proof of anything about the artifact.** It records a name, a path
@@ -615,7 +652,8 @@ and signed-attestation verification remain unimplemented.
 | Predicate | The SLSA provenance body describing the build. |
 | Envelope | DSSE wrapper carrying the payload and signatures. |
 | Builder identity | The OIDC identity or key that signed. |
-| Verification | The ordered checks in section 9.3. |
+| Verification | M2 unsigned artifact comparison; the signed checks in section 9.3 remain M4. |
+| Inspection | M3 offline format parsing and display with explicitly unsigned scope. |
 
 ---
 
@@ -623,15 +661,14 @@ and signed-attestation verification remain unimplemented.
 
 1. Read sections 0, 3, 9 and 10. The trust model is the design.
 2. `make build && ./bin/buildtrace version`.
-3. M1 is tagged and M2 is implemented on the feature branch. The next milestone is M3 provenance,
-   starting at BT-010. Preserve the canonical hashing contract and unsigned scope in ADR 0004.
-4. Before adding any predicate field, answer: how would a third party recompute this?
+3. M1/M2 are merged into `main`; M3 is complete with passing CI on its feature branch. Read
+   [M3 validation](testing/m3-provenance.md) and preserve ADR 0004/0005 contracts. Review remains pending.
+4. Before adding a predicate field, define its input and whether it is observed or asserted.
 5. Never merge a verification path without a negative test for each failure reason.
 6. Manifest `schemaVersion: 1` is enforced. M2 emits digest/kind and rejects unknown versions.
    Changing the shape of
    an existing field needs an ADR and a version bump.
 7. The repository layout in section 11 is the plan; `internal/manifest` and `internal/cli` were added in
    M1 and are now part of it. M2 uses `internal/hashing` and `internal/verify`.
-   `internal/attestation`, `internal/signing`, `internal/sbom` and `pkg/intoto` remain later milestones
-   and are not to be scaffolded
-   before the milestone that needs them.
+   M3 implements `internal/attestation` and `pkg/intoto`.
+   `internal/signing` and `internal/sbom` remain later milestones; do not scaffold them early.

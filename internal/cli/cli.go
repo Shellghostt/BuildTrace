@@ -66,16 +66,16 @@ func (a *App) Run(args []string) int {
 		return a.runManifest(args[1:])
 	case "verify":
 		return a.runVerify(args[1:])
+	case "record":
+		return a.runRecord(args[1:])
+	case "inspect":
+		return a.runInspect(args[1:])
 	case "version", "--version", "-v":
 		_, _ = fmt.Fprintf(a.Stdout, "buildtrace %s\n", a.Version)
 		return ExitOK
 	case "help", "--help", "-h":
 		a.usage()
 		return ExitOK
-	case "record", "inspect":
-		_, _ = fmt.Fprintf(a.Stderr,
-			"buildtrace %s is planned for a later milestone and is not implemented yet\n", args[0])
-		return ExitToolError
 	default:
 		_, _ = fmt.Fprintf(a.Stderr, "error: unknown command %q\n", args[0])
 		a.usage()
@@ -111,6 +111,11 @@ Usage:
                       [--repo <dir>] [--built-at <RFC3339>] [--builder-id <id>]
   buildtrace version
   buildtrace verify --manifest <file> [--root <dir>] [--json]
+  buildtrace record --artifact <path> [--artifact <path>...] [--repo <dir>]
+                    [--out <file>] [--sign none] [--builder-id <public-uri>]
+                    [--invocation-id <public-id>] [--source-uri <uri> --source-commit <full-commit>]
+                    [--started-on <RFC3339> --finished-on <RFC3339>]
+  buildtrace inspect --attestation <file> [--json]
 `)
 }
 

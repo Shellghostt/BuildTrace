@@ -32,6 +32,46 @@ PATH=/no-tools "$binary" verify --manifest /work/manifest.json --root /work/repo
 grep -q '"scope":"unsigned_manifest"' /work/matched.json
 grep -q '"status":"matched"' /work/matched.json
 
+# M3 records existing bytes; its inspection needs no git or network and makes
+# no claims that the checkout produced the artifacts.
+"$binary" record --repo /work/repo --artifact app --artifact bundle --artifact bundle/link \
+  --sign none --out /work/artifacts.intoto.jsonl
+"$binary" record --repo /work/repo --artifact bundle/link --artifact bundle --artifact app \
+  --out /work/again.intoto.jsonl
+cmp /work/artifacts.intoto.jsonl /work/again.intoto.jsonl
+grep -q 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824 /work/artifacts.intoto.jsonl
+grep -q '"name":"bundle/link"' /work/artifacts.intoto.jsonl
+! grep -q 'startedOn\|finishedOn\|resolvedDependencies\|byproducts' /work/artifacts.intoto.jsonl
+PATH=/no-tools "$binary" inspect --attestation /work/artifacts.intoto.jsonl --json >/work/inspection.json
+grep -q '"scope":"unsigned_statement"' /work/inspection.json
+grep -q '"status":"inspected"' /work/inspection.json
+PATH=/no-tools "$binary" inspect --attestation /work/artifacts.intoto.jsonl >/work/inspection.txt
+grep -q 'builder label:' /work/inspection.txt
+grep -q 'dependencies: none recorded' /work/inspection.txt
+
+expect_cli_failure() {
+  expected=$1
+  shift
+  code=0
+  "$binary" "$@" >/work/rejected.txt 2>/work/rejected.err || code=$?
+  test "$code" = "$expected"
+  test ! -s /work/rejected.txt
+}
+expect_cli_failure 2 record --sign keyless
+expect_cli_failure 2 record --repo /work/repo --artifact app --out /work/repo/app
+test "$(cat app)" = hello
+expect_cli_failure 2 record --repo /work/repo --artifact bundle --out /work/repo/bundle/statement.jsonl
+cat /work/artifacts.intoto.jsonl /work/artifacts.intoto.jsonl >/work/multiple.jsonl
+expect_cli_failure 2 inspect --attestation /work/multiple.jsonl
+tr -d '\n' </work/artifacts.intoto.jsonl >/work/unterminated.jsonl
+expect_cli_failure 2 inspect --attestation /work/unterminated.jsonl
+printf '{\n' >/work/truncated.jsonl
+expect_cli_failure 2 inspect --attestation /work/truncated.jsonl
+printf '' >/work/empty.jsonl
+expect_cli_failure 2 inspect --attestation /work/empty.jsonl
+dd if=/dev/zero of=/work/oversized.jsonl bs=1048576 count=17 2>/dev/null
+expect_cli_failure 2 inspect --attestation /work/oversized.jsonl
+
 expect_failure() {
   expected=$1
   reason=$2
@@ -55,5 +95,7 @@ sed 's/"schemaVersion": 1/"schemaVersion": 99/' /work/manifest.json >/work/unkno
 expect_failure 2 unsupported_schema_version /work/unknown.json
 rm app
 expect_failure 2 artifact_missing /work/manifest.json
-printf 'BuildTrace container: nonroot/read-only capture, deterministic file/directory/symlink hashing, offline verification, tamper, schema and missing-file checks passed.\n'
+PATH=/no-tools "$binary" inspect --attestation /work/artifacts.intoto.jsonl --json >/work/inspection-missing.json
+grep -q '"status":"inspected"' /work/inspection-missing.json
+printf 'BuildTrace container: nonroot/read-only M2 hashing/verification and M3 unsigned record/inspect, deterministic output, bounds, collisions, signing rejection and negative checks passed.\n'
 CONTAINER

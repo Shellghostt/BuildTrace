@@ -9,6 +9,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- [M3 requirements](docs/phases/M3.md) with phase boundaries, failure cases, ADR prerequisites and
+  acceptance gates, plus a [development-tool audit](docs/DEVELOPMENT-TOOLS.md).
+- M3 unsigned `record` and offline `inspect`, using in-toto Statement v1/SLSA provenance v1 and
+  the versioned artifact-recorder contract in ADR 0005. Observed artifacts/checkout metadata and
+  explicit caller assertions have defined meanings; original build history and identity are not inferred.
+- Deterministic recorder IDs, paired optional source/time claims, unique relative subject names,
+  URI credential/query/fragment removal and atomic output protection using M2 canonical digests.
+- A bounded JSONL reader with exact key matching, duplicate-key rejection and compatible unknown
+  fields retained in its explicitly unsigned inspection report.
+- Two synthetic goldens, an isolated pinned upstream Protobuf JSON validator with source/license
+  checksums, a schema CI job and a separate validator vulnerability scan.
+- Extended 1 GiB and packaged-container checks for M3, parser fuzzing and Go allocation/heap profiles.
+  [Validation](docs/testing/m3-provenance.md) passed locally and in Windows/Ubuntu/macOS CI on
+  2026-11-17; review is pending.
+
 - M2 streaming file SHA-256, canonical directory hashing and symlink entries without following targets.
 - `verify --manifest` with offline recomputation of kind, digest and size, stable JSON reports and
   exit codes. The v1 reader rejects missing digests, unsupported versions and ambiguous/malformed JSON.
@@ -27,7 +42,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - The Go floor moves from 1.23 to 1.26. `go.mod` declares `go 1.26.0` and `toolchain go1.26.11`, so
   CI installs the patched toolchain and not the exact patch named by the `go` directive. Go 1.23 is
   past its support window and receives no security fixes. See ADR 0003.
-- The builder image moves to `golang:1.26-alpine`.
+- The builder image is pinned to `golang:1.26.11-alpine`.
 - The linter is golangci-lint v2.15.0, pinned by version, run by `golangci/golangci-lint-action@v9`.
   The findings it produced were fixed in the code rather than excluded.
 
@@ -37,12 +52,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   writes avoid truncating destination symlink/hardlink targets.
 - Directory mutation checks use rooted stat metadata on Windows, avoiding false changes from cached
   directory-entry information.
+- The shared hasher captures Windows file identity during its initial observation. A replacement
+  with equal size/timestamp can no longer make a lazily resolved identity compare with the replacement.
+  The regression passes on Windows and Linux; canonical hashing formats and M2 CLI contracts are unchanged.
 
 - The writes whose error return was discarded now say so explicitly with `_, _ =`.
 
 ### Planned
 
-- M3: unsigned in-toto/SLSA provenance generation and inspection. Signing and identity checks remain M4.
+- M4 DSSE/signing, signature verification and identity policy; M5 CI integration and M6 dependency/SBOM
+  and reproducibility work remain unimplemented.
 
 ## [0.1.0] - 2026-11-13
 

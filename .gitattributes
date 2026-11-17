@@ -4,3 +4,8 @@
 *.jpg binary
 *.ico binary
 *.woff2 binary
+
+# Archived upstream schema/license checksums require their original bytes.
+tests/schemas/upstream/** -text
+# The pinned upstream SLSA license includes intentional trailing spaces.
+tests/schemas/upstream/slsa-LICENSE.md whitespace=-blank-at-eol
