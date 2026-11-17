@@ -38,6 +38,11 @@ its generated large artifact after the missing-file check. Docker volumes/data a
 The final local report is in `bin/m2-memory-de1bdd2666ce49bcbeef6d18a7e42890/result.json`.
 Earlier successful runs had different working sets; this table records the final source run.
 
+The subsequent [PR CI run](https://github.com/Shellghostt/BuildTrace/actions/runs/44004248904) also passed
+the unchanged gate on Windows/amd64: manifest 9,084,928 bytes, verify 7,622,656 bytes and record
+8,900,608 bytes peak working set. CI again observed tamper exit 1, missing exit 2 and successful
+inspection after artifact removal. These are separate runner measurements, not a speed comparison.
+
 File bytes use the inherited reusable 1 MiB hashing buffer. Directory sorting retains bounded
 O(entry count) metadata, capped at 100,000 entries. The single-file result does not imply constant
 memory for arbitrary directory populations or prove that no concurrent writer can evade metadata checks.

@@ -10,7 +10,7 @@ Thanks for taking the time. This document is deliberately short and specific.
 3. [docs/adr/](docs/adr/) - decisions that have already been argued about. Do not relitigate them
    without a new ADR.
 4. [docs/phases/M3.md](docs/phases/M3.md) - M3 scope and acceptance gates, with accepted ADR 0005 and
-   [local evidence](docs/testing/m3-provenance.md).
+   [validation evidence](docs/testing/m3-provenance.md).
 5. [docs/DEVELOPMENT-TOOLS.md](docs/DEVELOPMENT-TOOLS.md) - CodeGraph freshness, static-analysis coverage
    and profiling appropriate to this repository's runtime.
 

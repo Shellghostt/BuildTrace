@@ -21,7 +21,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Two synthetic goldens, an isolated pinned upstream Protobuf JSON validator with source/license
   checksums, a schema CI job and a separate validator vulnerability scan.
 - Extended 1 GiB and packaged-container checks for M3, parser fuzzing and Go allocation/heap profiles.
-  [Local validation](docs/testing/m3-provenance.md) passed on 2026-11-17; GitHub CI/review are pending.
+  [Validation](docs/testing/m3-provenance.md) passed locally and in Windows/Ubuntu/macOS CI on
+  2026-11-17; review is pending.
 
 - M2 streaming file SHA-256, canonical directory hashing and symlink entries without following targets.
 - `verify --manifest` with offline recomputation of kind, digest and size, stable JSON reports and

@@ -1,8 +1,9 @@
 # BuildTrace Architecture
 
-**Status: M3 implemented and locally verified on `feat/m3-implementation`.** M2 is merged into main.
+**Status: M3 implemented and verified on `feat/m3-implementation`.** M2 is merged into main.
 Unsigned provenance recording/inspection, metadata collectors, deterministic manifests, file/directory/
-symlink hashing and offline unsigned manifest verification exist. GitHub CI/review are pending.
+symlink hashing and offline unsigned manifest verification exist. Windows/Ubuntu/macOS CI passed;
+review is pending.
 Signing, identity policy, dependency discovery and SBOM generation remain later milestones.
 The authoritative specification is
 [PLAN.md](PLAN.md), and section 0 there is the current truth.
@@ -158,5 +159,5 @@ design.
 ## M3 validation
 
 Read [phase requirements](phases/M3.md), the [validation record](testing/m3-provenance.md) and
-[memory/profile evidence](benchmarks/m3-provenance.md). All local M3 gates pass; GitHub CI/review
-are pending. [Development tools](DEVELOPMENT-TOOLS.md) records actual coverage and limitations.
+[memory/profile evidence](benchmarks/m3-provenance.md). Local M3 gates and GitHub CI passed; review
+is pending. [Development tools](DEVELOPMENT-TOOLS.md) records actual coverage and limitations.

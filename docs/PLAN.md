@@ -26,8 +26,8 @@ updated: 2026-11-17
 
 ## 0. Machine context
 
-M2 is merged into `main`. M3 is **implemented and locally verified** on
-`feat/m3-implementation`, unreleased, with GitHub CI/review pending.
+M2 is merged into `main`. M3 is **implemented and verified locally and in CI** on
+`feat/m3-implementation`, unreleased, with review pending.
 [M3 validation](testing/m3-provenance.md) maps the phase's acceptance gates to executed checks.
 [ADR 0005](adr/0005-m3-unsigned-recorder-contract.md) and the
 [versioned recorder contract](build-types/record/v1.md) define the unsigned operation.
@@ -59,6 +59,7 @@ implemented:
   - bounded offline inspect with unsigned_statement / inspected scope
   - two synthetic goldens and isolated pinned upstream format validation
   - native Windows race validation with a 64-bit UCRT64 compiler
+  - passing Windows/Ubuntu/macOS CI race, offline schema, image, lint and security jobs
 
 not_implemented:
   - signed-attestation verification -- M4
@@ -476,9 +477,9 @@ macOS execution remains CI validation; cross-platform builds are checked separat
 
 **Deliverable:** unsigned `record`, in-toto Statement v1 with SLSA provenance predicate v1 and offline `inspect`.
 
-Status: **Implemented and locally verified**, unreleased on `feat/m3-implementation`.
+Status: **Implemented and verified locally and in CI**, unreleased on `feat/m3-implementation`.
 [M3 validation](testing/m3-provenance.md) records the exact source commit and test mapping;
-GitHub CI/review remain pending. Arbitrary build execution and signing are excluded.
+GitHub CI passed; review remains pending. Arbitrary build execution and signing are excluded.
 
 **Acceptance criteria**
 
@@ -543,11 +544,11 @@ identity policy.
 | BT-007 | Directory hashing with deterministic order | BT-006 | M2 | Done |
 | BT-008 | Manifest verification | BT-004, BT-006 | M2 | Done |
 | BT-009 | Tamper tests | BT-008 | M2 | Done |
-| BT-010 | in-toto statement types in `pkg/intoto` | — | M3 | Done locally |
-| BT-011 | SLSA predicate builder | BT-010 | M3 | Done locally |
-| BT-011A | Unsigned `record` command and field/input mapping | BT-011, BT-007 | M3 | Done locally |
-| BT-012 | `inspect` command | BT-011 | M3 | Done locally |
-| BT-013 | Schema validation against upstream | BT-011 | M3 | Done locally |
+| BT-010 | in-toto statement types in `pkg/intoto` | — | M3 | Done; CI passed |
+| BT-011 | SLSA predicate builder | BT-010 | M3 | Done; CI passed |
+| BT-011A | Unsigned `record` command and field/input mapping | BT-011, BT-007 | M3 | Done; CI passed |
+| BT-012 | `inspect` command | BT-011 | M3 | Done; CI passed |
+| BT-013 | Schema validation against upstream | BT-011 | M3 | Done; CI passed |
 | BT-014 | DSSE encoding and PAE | BT-010 | M4 | Not started |
 | BT-015 | Local key signer and verifier | BT-014 | M4 | Not started |
 | BT-016 | Sigstore keyless signer | BT-014 | M4 | Not started |
@@ -660,8 +661,8 @@ Signed-attestation verification remains unimplemented; M3 inspection is not a ve
 
 1. Read sections 0, 3, 9 and 10. The trust model is the design.
 2. `make build && ./bin/buildtrace version`.
-3. M1/M2 are merged into `main`; M3 is locally complete on its feature branch. Read
-   [M3 validation](testing/m3-provenance.md) and preserve ADR 0004/0005 contracts. CI/review are merge gates.
+3. M1/M2 are merged into `main`; M3 is complete with passing CI on its feature branch. Read
+   [M3 validation](testing/m3-provenance.md) and preserve ADR 0004/0005 contracts. Review remains pending.
 4. Before adding a predicate field, define its input and whether it is observed or asserted.
 5. Never merge a verification path without a negative test for each failure reason.
 6. Manifest `schemaVersion: 1` is enforced. M2 emits digest/kind and rejects unknown versions.

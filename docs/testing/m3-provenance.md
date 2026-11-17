@@ -1,9 +1,9 @@
 # M3 unsigned provenance validation — 2026-11-17
 
-M3 is implemented and locally verified on `feat/m3-implementation`, unreleased.
+M3 is implemented and verified locally and in CI on `feat/m3-implementation`, unreleased.
 The verified runtime/tests are committed at `0981a57cfc76c5f7a5064507d9833e4bdaae31ce`.
 The M2 baseline remains `e133687faa9c48b466ccdaf0b83ef8a31cc5893f`; no merge or main push occurred.
-GitHub CI has not run for M3 at this local-validation checkpoint.
+Local validation preceded publication. The subsequent GitHub CI evidence is recorded below.
 
 The [phase contract](../phases/M3.md), accepted
 [ADR 0005](../adr/0005-m3-unsigned-recorder-contract.md) and
@@ -138,12 +138,28 @@ outside this Git repository.
 Final runtime gates were rerun after the Base64 and file-identity fixes. Status docs were updated
 after those checks, rather than treating earlier failures as passing evidence.
 
-## Recorded limits and remaining merge gates
+## GitHub CI evidence
 
-GitHub M3 CI is pending publication at this checkpoint. Local Windows execution, Linux hashing tests
-and the Linux packaged image passed; native macOS and arm64 execution were not performed locally.
-Six target builds establish compilation only. The CI workflow defines Windows/Ubuntu/macOS race tests,
-Windows memory checks, Linux fuzzing, offline schemas, packaged smoke, lint and vulnerability scans.
+All seven jobs passed for head `37a3aa7b3eea22e06d1969068c6942f6b990619c` in both the
+[branch push run](https://github.com/Shellghostt/BuildTrace/actions/runs/44004237533) and
+[pull-request run](https://github.com/Shellghostt/BuildTrace/actions/runs/44004248904):
+Windows/Ubuntu/macOS build/race tests, packaged image integration, offline schemas, lint and
+vulnerability scan. The two runs provide 14 successful job results for the unchanged verified runtime.
+
+The Windows job ran Go 1.26.11 on amd64 and passed the 1 GiB gate: manifest 9,084,928 bytes,
+verify 7,622,656 bytes and record 8,900,608 bytes peak working set, all below 64 MiB.
+Tamper exited 1, missing artifact exited 2 and inspection after artifact removal exited 0.
+The macOS job ran Go 1.26.11 on darwin/arm64 and passed the native race suite.
+Later status-only documentation commits do not change runtime/tests; CI remains a required check
+on the PR's final head.
+
+## Recorded limits and remaining merge gate
+
+Local Windows execution, Linux hashing tests and the Linux packaged image passed. Native macOS/arm64
+was not performed locally; the macOS/arm64 CI execution above supplies that evidence.
+Six target builds establish compilation only, including Linux/Windows arm64 targets not executed here.
+The CI workflow ran Windows/Ubuntu/macOS race tests, Windows memory checks, Linux fuzzing, offline
+schemas, packaged smoke, lint and vulnerability scans. Review/merge remain the user's decision.
 
 Signing/DSSE, identity policy and signed-attestation verification are M4 work, not skipped M3 gates.
 Dependency discovery, SBOM and reproducibility remain later milestones. Finite passing tests do not

@@ -6,8 +6,8 @@
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 ![Go](https://img.shields.io/badge/go-1.26-00ADD8?logo=go&logoColor=white)
 
-**Status: M3 implemented and locally verified on `feat/m3-implementation`.** GitHub CI and review
-are pending; this work is unreleased. `record` writes unsigned in-toto Statement v1/SLSA provenance v1
+**Status: M3 implemented and verified on `feat/m3-implementation`.** Windows, Ubuntu and macOS CI
+passed; review is pending and this work is unreleased. `record` writes unsigned in-toto Statement v1/SLSA provenance v1
 for existing artifacts, with checkout observations and explicit caller assertions.
 `inspect` parses that statement offline. M2 `manifest` and `verify --manifest` still record and
 recompute artifact kinds, SHA-256 digests and sizes.
@@ -27,7 +27,7 @@ bytes with an unsigned manifest; signing and authenticated builder identity rema
 | Write a deterministic `buildtrace.json` | M1 | **Done** |
 | Strip credentials from the recorded remote | M1 | **Done** |
 | Generate and verify artifact hashes | M2 | **Done (merged)** |
-| Record and inspect unsigned in-toto/SLSA provenance | M3 | **Done locally; CI/review pending** |
+| Record and inspect unsigned in-toto/SLSA provenance | M3 | **Done; CI passed; review pending** |
 | Verify artifact signatures | M4 | Not started |
 | CI/CD integration | M5 | Not started |
 | Track dependencies | M6 | Not started |
@@ -252,14 +252,14 @@ provenance verification verdict.
 
 ## Roadmap
 
-M3 is **implemented and locally verified**. Read the [acceptance evidence](docs/testing/m3-provenance.md)
-and [phase contract](docs/phases/M3.md). GitHub CI and review remain merge gates.
+M3 is **implemented and verified locally and in CI**. Read the [acceptance evidence](docs/testing/m3-provenance.md)
+and [phase contract](docs/phases/M3.md). Review remains a merge gate.
 
 | Milestone | Deliverable | Status |
 |---|---|---|
 | M1 | Build metadata collection and manifest generation | **Done** (v0.1.0) |
 | M2 | Artifact hashing and manifest verification | **Done (merged)** |
-| M3 | Unsigned in-toto/SLSA record and inspect | **Done locally; CI/review pending** |
+| M3 | Unsigned in-toto/SLSA record and inspect | **Done; CI passed; review pending** |
 | M4 | Signing and verification | Not started |
 | M5 | GitHub Actions integration | Not started |
 | M6 | SBOM support and reproducibility checks | Not started |
