@@ -2,12 +2,12 @@
 
 > An open-source build provenance and artifact verification system.
 
-![status](https://img.shields.io/badge/status-M3_unsigned_provenance-orange)
+![status](https://img.shields.io/badge/status-M3_complete-green)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 ![Go](https://img.shields.io/badge/go-1.26-00ADD8?logo=go&logoColor=white)
 
-**Status: M3 implemented and verified on `feat/m3-implementation`.** Windows, Ubuntu and macOS CI
-passed; review is pending and this work is unreleased. `record` writes unsigned in-toto Statement v1/SLSA provenance v1
+**Status: M1–M3 complete and merged into main.** Windows, Ubuntu and macOS CI
+passed; no new release is claimed. `record` writes unsigned in-toto Statement v1/SLSA provenance v1
 for existing artifacts, with checkout observations and explicit caller assertions.
 `inspect` parses that statement offline. M2 `manifest` and `verify --manifest` still record and
 recompute artifact kinds, SHA-256 digests and sizes.
@@ -16,7 +16,7 @@ recompute artifact kinds, SHA-256 digests and sizes.
 
 "We built this binary from that commit" is a claim. BuildTrace records recomputable artifact digests
 and identifies which metadata was observed and which was supplied by the caller. M2 compares artifact
-bytes with an unsigned manifest; signing and authenticated builder identity remain M4.
+bytes with an unsigned manifest; signing and signer authentication remain M4.
 
 ## What it does today
 
@@ -27,7 +27,7 @@ bytes with an unsigned manifest; signing and authenticated builder identity rema
 | Write a deterministic `buildtrace.json` | M1 | **Done** |
 | Strip credentials from the recorded remote | M1 | **Done** |
 | Generate and verify artifact hashes | M2 | **Done (merged)** |
-| Record and inspect unsigned in-toto/SLSA provenance | M3 | **Done; CI passed; review pending** |
+| Record and inspect unsigned in-toto/SLSA provenance | M3 | **Done (merged)** |
 | Verify artifact signatures | M4 | Not started |
 | CI/CD integration | M5 | Not started |
 | Track dependencies | M6 | Not started |
@@ -252,15 +252,18 @@ provenance verification verdict.
 
 ## Roadmap
 
-M3 is **implemented and verified locally and in CI**. Read the [acceptance evidence](docs/testing/m3-provenance.md)
-and [phase contract](docs/phases/M3.md). Review remains a merge gate.
+M3 is **complete and merged** through [PR #2](https://github.com/Shellghostt/BuildTrace/pull/2), with successful
+[main CI](https://github.com/Shellghostt/BuildTrace/actions/runs/44006031195). Read the
+[acceptance evidence](docs/testing/m3-provenance.md) and [phase contract](docs/phases/M3.md).
+[M4 requirements](docs/phases/M4.md) and [proposed signing/offline-verification ADR](docs/adr/0006-m4-signing-and-offline-verification.md)
+prepare the next phase; M4 implementation has not started.
 
 | Milestone | Deliverable | Status |
 |---|---|---|
 | M1 | Build metadata collection and manifest generation | **Done** (v0.1.0) |
 | M2 | Artifact hashing and manifest verification | **Done (merged)** |
-| M3 | Unsigned in-toto/SLSA record and inspect | **Done; CI passed; review pending** |
-| M4 | Signing and verification | Not started |
+| M3 | Unsigned in-toto/SLSA record and inspect | **Done (merged)** |
+| M4 | Signing and verification | Not started; documents prepared |
 | M5 | GitHub Actions integration | Not started |
 | M6 | SBOM support and reproducibility checks | Not started |
 
