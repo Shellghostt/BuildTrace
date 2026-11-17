@@ -9,7 +9,8 @@ Thanks for taking the time. This document is deliberately short and specific.
 2. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - how the pieces fit together.
 3. [docs/adr/](docs/adr/) - decisions that have already been argued about. Do not relitigate them
    without a new ADR.
-4. [docs/phases/M3.md](docs/phases/M3.md) - M3 scope, evidence, unresolved ADR decisions and acceptance gates.
+4. [docs/phases/M3.md](docs/phases/M3.md) - M3 scope and acceptance gates, with accepted ADR 0005 and
+   [local evidence](docs/testing/m3-provenance.md).
 5. [docs/DEVELOPMENT-TOOLS.md](docs/DEVELOPMENT-TOOLS.md) - CodeGraph freshness, static-analysis coverage
    and profiling appropriate to this repository's runtime.
 
@@ -28,11 +29,21 @@ cd BuildTrace
 make bootstrap   # install tooling and dependencies
 make test        # unit tests
 make lint        # formatting and static analysis
+make race        # needs a working 64-bit C compiler on Windows
+make schema-setup
+GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off make schemas
 ```
 
 The unit tests need a real `git` binary: they create a throwaway repository in a temporary directory
 and read it, rather than mocking git's output. A machine without git cannot run them, and the tests
 skip themselves with a message saying so.
+
+The upstream format validator lives in a separate `tests/schemas` module. Fetch its pinned
+dependencies during setup, then run schema validation offline with the installed Go 1.26.11 compiler.
+See its [README](tests/schemas/README.md) for PowerShell setup and the
+[M3 validation record](docs/testing/m3-provenance.md) for native race/image/memory commands.
+Use `VERSION=m3-local` with Make targets on Windows to bypass the existing Unix version expression.
+The CLI itself retains a standard-library-only runtime.
 
 ## Code navigation
 

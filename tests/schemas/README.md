@@ -18,6 +18,10 @@ tests. These checks do not authenticate artifacts or establish any SLSA level/bu
   are pinned in `go.sum`; source/license SHA-256 values and original paths are in [UPSTREAM.json](UPSTREAM.json).
   Original licenses remain alongside the source snapshots. Git preserves their exact bytes.
 
+The archived SLSA license contains upstream trailing spaces. A narrowly scoped Git whitespace
+attribute preserves that license unchanged; source/license SHA-256 checks still cover every byte.
+It does not exempt runtime/test source from formatting or whitespace checks.
+
 The upstream schemas use Protobuf with its JSON representation, not fetched JSON Schema documents.
 The official validators check structure and required fields; optional original build times remain
 optional. Compatible unknown fields are discarded by the reference validator and retained by the
