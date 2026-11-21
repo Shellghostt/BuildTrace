@@ -11,6 +11,7 @@ Each file records one decision that was expensive to make and would be expensive
 | [0005](0005-m3-unsigned-recorder-contract.md) | M3 unsigned artifact recorder and inspection | accepted; extends 0002 for record/inspect |
 | [0006](0006-m4-signing-and-offline-verification.md) | M4 DSSE signing and offline signer verification | accepted; signing formats, external trust and bounded offline policy |
 | [0007](0007-m4-audited-dependency-pins.md) | M4 audited signing dependency pins | accepted; supersedes 0006 initial Rekor/signature pins |
+| [0008](0008-m4-resolved-protobuf-patch.md) | M4 resolved protobuf patch | accepted; supersedes 0007 initial protobuf-specs pin |
 
 New ADRs are numbered sequentially and never edited after acceptance. A changed mind gets a new ADR
 that supersedes the old one.
