@@ -1,8 +1,8 @@
 # Development tools and memory validation
 
-Audit date: 2026-11-17. These are development aids, not product features or substitutes for tests.
+Audit date: 2026-11-22. These are development aids, not product features or substitutes for tests.
 Read [PLAN.md](PLAN.md), the [M4 requirements](phases/M4.md), implemented [M3 contract](phases/M3.md)
-and accepted [ADRs](adr/) first. M4 ADR 0006 remains proposed.
+and accepted [ADRs](adr/) first. M4 ADRs 0006-0008 are accepted; local gates passed and final live CI is pending publication.
 
 ## CodeGraph
 
@@ -15,7 +15,7 @@ codegraph sync
 ```
 
 On 2026-11-17, `codegraph status` reported the existing index up to date against merged M3 source.
-No new index or generated source was created for M4 preparation.
+The existing index was refreshed after M4 source/test changes on 2026-11-22; generated data stays ignored.
 
 For indexed code, use the CodeGraph MCP exploration tool with this repository's absolute
 `projectPath` and the symbol/flow you need. Read its returned source and callers before edits;
@@ -47,10 +47,12 @@ Profile only when the change or suspected fault justifies it; a documentation ed
 
 ## M4 implementation validation
 
-Use Go heap/RSS/goroutine measurements for repeated bounded envelope/bundle parsing, signing failures,
-historical offline verification and cancelled writes. Retain the 1-GiB hashing/recording gate and add
-separate proof/certificate/decoded-payload bounds; setup downloads do not make a verifier offline.
-Use synthetic keys/tokens and record real network-disabled execution. These checks remain future M4 work.
+The [M4 measurement record](benchmarks/m4-signing.md) contains actual 300-cycle local/offline/failed/cancelled
+signing tests, native OS peak working set and Go allocation/heap profiles. Retained heap grew 180,104 B,
+with goroutine delta 0. The profile/test-harness RSS is distinct from the shipped CLI's 1 GiB/64 MiB gate.
+The latter passed using production compiler flags; its artifact workload and memory threshold remain intact.
+Separate proof/certificate/decoded payload bounds and real `--network none` container verification passed.
+MemGuard/MAT do not cover this Go runtime. Synthetic setup does not substitute for final live signing CI.
 
 ## Memory Analyzer
 

@@ -5,6 +5,14 @@ The two [M3 fixtures](../fixtures/m3/) pass the official in-toto generated Proto
 `Validate` methods for Statement v1 and SLSA provenance v1. Malformed required fields have negative
 tests. These checks do not authenticate artifacts or establish any SLSA level/build honesty.
 
+M4 adds eight pinned public [signed fixtures](../fixtures/m4/README.md). The isolated tests bypass
+BuildTrace's internal packages: go-securesystemslib verifies local DSSE with external Ed25519/P-256
+keys, and direct Sigstore-Go verifies the historical bundle with external roots, exact signer policy,
+authenticated signing time and artifact digest. Negative signature/identity/artifact cases fail.
+Sigstore-Go is also the production keyless cryptographic library; this checks independent pipeline
+usage and format compatibility, rather than a second cryptographic implementation. These synthetic
+fixtures do not constitute live Fulcio/Rekor signing or proof of original build history.
+
 ## Pins and attribution
 
 - in-toto Attestation, commit `50bf01716982189898823e90586075f37cd9bb7d`, module
@@ -17,6 +25,10 @@ tests. These checks do not authenticate artifacts or establish any SLSA level/bu
 - The validator uses `google.golang.org/protobuf v1.36.12` (BSD-3-Clause). Module content checksums
   are pinned in `go.sum`; source/license SHA-256 values and original paths are in [UPSTREAM.json](UPSTREAM.json).
   Original licenses remain alongside the source snapshots. Git preserves their exact bytes.
+- M4 reference dependencies include go-securesystemslib v0.11.1 (MIT) and Sigstore-Go v1.3.0
+  (Apache-2.0), with compatible graph pins in go.mod/go.sum. The
+  [dependency inventory](../../docs/dependencies/m4-signing.json) records checksums and license hashes;
+  accepted [ADRs 0006–0008](../../docs/adr/README.md) document the versions and policy.
 
 The archived SLSA license contains upstream trailing spaces. A narrowly scoped Git whitespace
 attribute preserves that license unchanged; source/license SHA-256 checks still cover every byte.
@@ -41,5 +53,6 @@ set `$env:GOTOOLCHAIN='local'`, `$env:GOPROXY='off'` and `$env:GOSUMDB='off'` fo
 The local setting prevents the host's Go launcher from trying to authenticate a downloaded toolchain
 through a disabled checksum database. It does not change the pinned compiler version.
 Fixture validation itself never fetches a schema or runs a build. CI performs the same separate
-setup and offline test steps. `make test` covers the CLI's own standard-library-only implementation;
-`make schemas` covers the separate upstream implementation.
+setup and offline test steps. `make test` covers the CLI implementation; `make schemas` covers the
+isolated upstream format/signature checks. M3 wire types remain standard-library-only; M4 uses the
+explicitly pinned signing dependencies.

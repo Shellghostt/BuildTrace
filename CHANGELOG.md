@@ -9,9 +9,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- [M4 preparation](docs/phases/M4.md) and [proposed ADR 0006](docs/adr/0006-m4-signing-and-offline-verification.md)
-  for DSSE/local/keyless modes, signer policy, authenticated signing time and offline acceptance.
-  Documentation only; M4 remains not started. Current status records merged M3 and successful main CI.
+- M4 exact-byte DSSE/PAE, local Ed25519/P-256 keys, standard Sigstore v0.3 keyless bundles,
+  external key/root/identity policy and selected rooted artifact verification under accepted ADRs 0006-0008.
+- Historical synthetic certificate/CT/Rekor fixtures, strict bounds/negative scope/reason tests,
+  separate unsigned opt-in and scoped signer/checked/unselected reports. M2/M3 default bytes/contracts remain compatible.
+- Independent signed fixtures, patched module/license inventory and focused live GitHub OIDC CI job.
+  [Local validation](docs/testing/m4-signing.md) and [resource measurements](docs/benchmarks/m4-signing.md)
+  passed on source `6ef2dd9`; final cross-platform/live signing CI remains pending publication and M4 is unmerged.
 - [M3 requirements](docs/phases/M3.md) with phase boundaries, failure cases, ADR prerequisites and
   acceptance gates, plus a [development-tool audit](docs/DEVELOPMENT-TOOLS.md).
 - M3 unsigned `record` and offline `inspect`, using in-toto Statement v1/SLSA provenance v1 and
@@ -38,6 +42,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- M4 adds statically linked signing dependencies with explicit compatible pins and runtime/test audits.
+- The 1 GiB/64 MiB memory gate now uses production Make/Docker `-trimpath -ldflags '-s -w'` flags;
+  its artifact workload, independent digest and memory threshold are unchanged. Initial debug-build failure is recorded.
+- The Make image target passes its version to the binary; Docker copies committed go.mod/go.sum and builds read-only modules.
+
 - The repository is published at https://github.com/Shellghostt/BuildTrace and the CI workflow has
   executed. The first run on 2026-11-13 passed the Windows, Ubuntu and macOS matrix, the lint job and
   the vulnerability scan, including `go test -race`, which could not be run on the machine that
@@ -51,6 +60,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- Required certificate issuer evidence, authenticated SET/checkpoint/tree consistency and explicit trust-root key handling
+  reject incomplete/forged keyless material. Shared standard roots keep unused Rekor v2 entries without enabling v2 verification.
+- TUF setup retains typed root-rotation HTTP/size errors; signing diagnostics exclude token/key/service response material.
+- The signing dependency audit's six vulnerabilities were addressed through compatible patched modules and maintained OpenPGP.
+
 - Manifest output cannot replace an artifact or live inside a selected directory. Temporary sibling
   writes avoid truncating destination symlink/hardlink targets.
 - Directory mutation checks use rooted stat metadata on Windows, avoiding false changes from cached
@@ -63,8 +77,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Planned
 
-- M4 DSSE/signing, signature verification and identity policy; M5 CI integration and M6 dependency/SBOM
-  and reproducibility work remain unimplemented.
+- M4 final real/cross-platform CI acceptance is pending publication; M5 reusable action/release integration
+  and M6 dependency/SBOM/reproducibility remain future work.
 
 ## [0.1.0] - 2026-11-13
 

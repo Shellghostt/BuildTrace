@@ -9,8 +9,8 @@ Thanks for taking the time. This document is deliberately short and specific.
 2. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - how the pieces fit together.
 3. [docs/adr/](docs/adr/) - decisions that have already been argued about. Do not relitigate them
    without a new ADR.
-4. [docs/phases/M4.md](docs/phases/M4.md) - planned signing/trust policy, dependency order and acceptance;
-   preserve [M3 contracts](docs/phases/M3.md) and accepted ADR 0005. ADR 0006 remains proposed.
+4. [docs/phases/M4.md](docs/phases/M4.md) - implemented signing/trust policy and local/pending-live acceptance;
+   preserve [M3 contracts](docs/phases/M3.md). ADRs 0006-0008 are accepted; final real/cross-platform CI is pending publication.
 5. [docs/DEVELOPMENT-TOOLS.md](docs/DEVELOPMENT-TOOLS.md) - CodeGraph freshness, static-analysis coverage
    and profiling appropriate to this repository's runtime.
 
@@ -42,8 +42,11 @@ The upstream format validator lives in a separate `tests/schemas` module. Fetch 
 dependencies during setup, then run schema validation offline with the installed Go 1.26.11 compiler.
 See its [README](tests/schemas/README.md) for PowerShell setup and the
 [M3 validation record](docs/testing/m3-provenance.md) for native race/image/memory commands.
-Use `VERSION=m3-local` with Make targets on Windows to bypass the existing Unix version expression.
-The CLI itself retains a standard-library-only runtime.
+Use `VERSION=m4-local` with Make targets on Windows to bypass the existing Unix version expression.
+M4 expands the static CLI with a pinned/audited Sigstore stack; M3 wire types retain their standard-library contract.
+Read [M4 validation](docs/testing/m4-signing.md), [accepted ADRs](docs/adr/README.md),
+[module/license inventory](docs/dependencies/m4-signing.json) and [resource measurements](docs/benchmarks/m4-signing.md).
+Local signing and verification need no network; explicit trust setup/keyless signing contact configured services.
 
 ## Code navigation
 

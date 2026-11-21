@@ -9,12 +9,12 @@ license: Apache-2.0
 rank: 5
 focus: Software supply chain
 depends_on:
-  - No runtime dependency (single static binary)
+  - Single static CLI with pinned signing library modules
   - git (subprocess, for repository metadata only)
   - Sigstore (signing, M4)
-  - GitHub Actions (first CI integration, M5)
+  - GitHub Actions (focused live signing check in M4; reusable integration in M5)
 created: 2026-11-13
-updated: 2026-11-17
+updated: 2026-11-22
 ---
 
 # BuildTrace — Implementation Plan
@@ -33,16 +33,19 @@ merged at `2077b7780c993d688045845adbc61705edcc0616`; its
 [ADR 0005](adr/0005-m3-unsigned-recorder-contract.md) and the
 [versioned recorder contract](build-types/record/v1.md) define the unsigned operation.
 The [development-tool audit](DEVELOPMENT-TOOLS.md) records actual coverage and profiling limits.
-M4 is **Not started**. [M4 requirements](phases/M4.md) and
-[proposed ADR 0006](adr/0006-m4-signing-and-offline-verification.md) prepare DSSE, signer policy,
-trusted signing-time material and offline verification without claiming implementation or acceptance.
+M4 is **implemented and verified locally** on `feat/m4-implementation`, source `6ef2dd9`.
+[Phase requirements](phases/M4.md), [validation](testing/m4-signing.md),
+[accepted ADR 0006](adr/0006-m4-signing-and-offline-verification.md) and dependency updates
+[0007](adr/0007-m4-audited-dependency-pins.md)/[0008](adr/0008-m4-resolved-protobuf-patch.md) define
+exact signing/trust/policy bounds. Final GitHub cross-platform CI and real keyless signing are pending
+publication; the feature branch is unmerged and no release is claimed.
 
 ```yaml
 project: BuildTrace
 status: mvp
 version: 0.1.0
 builds: true
-functional: partial            # metadata, hashing, unsigned manifest checks and provenance inspection
+functional: partial            # M1-M4 runtime exists; M4 live/cross-platform acceptance is pending
 
 implemented:
   - repository skeleton
@@ -63,12 +66,14 @@ implemented:
   - bounded offline inspect with unsigned_statement / inspected scope
   - two synthetic goldens and isolated pinned upstream format validation
   - native Windows race validation with a 64-bit UCRT64 compiler
-  - passing Windows/Ubuntu/macOS CI race, offline schema, image, lint and security jobs
+  - passing M3 Windows/Ubuntu/macOS CI race, offline schema, image, lint and security jobs
+  - M4 exact-byte DSSE/PAE with Ed25519/P-256 and standard keyless bundles
+  - offline external signer policy, selected rooted artifacts and stable scoped reports
+  - historical synthetic certificate/CT/Rekor trust and independent signed fixtures
+  - patched/pinned signing stack, local test/race/lint/image/memory/audit gates
 
 not_implemented:
-  - signed-attestation verification -- M4
-  - signing, dsse envelopes, sigstore -- M4
-  - identity policy -- M4
+  - final M4 cross-platform and real authorized GitHub keyless CI acceptance
   - github actions integration -- M5
   - sbom generation -- M6
   - reproducibility checks -- M6
@@ -101,9 +106,9 @@ if_uncertain:
 
 ## 1. What this is
 
-A CLI that records existing artifacts, checkout observations and explicit caller claims in unsigned
-in-toto-compatible statements. M2 verifies artifact bytes against an unsigned manifest; signing and
-authenticated identity policy remain M4.
+A CLI that records artifact observations and caller claims in in-toto-compatible statements.
+Unsigned recording/inspection and M2 manifest checks remain supported; M4 signs exact payload bytes
+and verifies external signer policy with independently recomputed selected artifacts.
 
 One-line description: *An open-source build provenance and artifact verification system.*
 
@@ -267,7 +272,7 @@ remains `/v1`. See [M3 requirements](phases/M3.md) for the input/claim mapping a
 ```
 
 M3 stores one compact unsigned statement per artifact set as `<artifact>.intoto.jsonl`, ending in LF.
-Its bounded reader also accepts CRLF. DSSE envelopes remain M4.
+Its bounded reader also accepts CRLF. M4 signs those exact unchanged payload bytes in a DSSE envelope or standard v0.3 bundle.
 
 ---
 
@@ -284,16 +289,22 @@ buildtrace verify --manifest buildtrace.json [--root <dir>] [--json]
 buildtrace version
 ```
 
-The following signed-attestation command is planned for M4 and is currently rejected:
+Implemented M4 command surface:
 
-```
-buildtrace verify --artifact dist/app --attestation <signed-envelope-or-bundle>
-                   --identity <certificate-identity> --issuer <oidc-issuer>
+```text
+buildtrace record --artifact dist/app --sign local --out app.dsse.json
+  # private key file path comes from BUILDTRACE_SIGNING_KEY
+buildtrace record --artifact dist/app --sign keyless --trusted-root <file> --out app.sigstore.json
+buildtrace verify --artifact dist/app --attestation <file> --root <dir> --json
+  (--public-key <file> | --trusted-root <file> --expect-identity <exact> --expect-issuer <exact>)
+  [--subject <canonical-name> ...] [--expect-builder <exact-recorder-label>]
+  [--expect-source-uri <exact-uri> --expect-source-commit <full-lowercase-commit>]
+buildtrace verify --artifact dist/app --attestation <unsigned-jsonl> --root <dir> --allow-unsigned --json
 ```
 
-Local-key/public-key/root mapping and explicit unsigned flags are also planned. Final mode, policy,
-standard-bundle output and trust-root arguments must be settled under
-[proposed ADR 0006](adr/0006-m4-signing-and-offline-verification.md). None of these signed modes exists yet.
+Local and keyless policy cannot be combined. Unsigned opt-in cannot satisfy signer policy. The
+accepted format/output/root/check-order contract is [ADR 0006](adr/0006-m4-signing-and-offline-verification.md),
+with actual dependency pins in 0007/0008 and go.mod/go.sum. No verified result is inferred from inspection.
 
 | Exit code | Meaning |
 |---|---|
@@ -313,7 +324,7 @@ that failed.
 
 M2 unsigned mode checks each artifact's kind, digest and byte count against a supplied v1 manifest.
 Success declares `scope: unsigned_manifest` and `status: matched`. Source metadata, builder labels,
-signatures and dependencies are not authenticated. The full signed pipeline below remains M4.
+signatures and dependencies are not authenticated. The separate M4 signed pipeline is defined below.
 
 M3 generation recomputes subject digests while recording. M3 inspection performs only bounded format
 parsing, with `scope: unsigned_statement`, `status: inspected`. It neither opens artifacts nor checks
@@ -334,18 +345,20 @@ Given an artifact `A`, an attestation `S`, and a policy `P(identity, issuer)`:
 
 ### 9.2 What verification does **not** prove
 
-- **Manifests and M3 statements are unsigned.** Anyone can edit artifacts and their expected digests.
+- **M2 manifests and `record --sign none` statements are unsigned.** Anyone can edit artifacts and their expected digests.
   Matching a manifest or inspecting a statement does not authenticate the build or its source.
-- **Recording does not witness the original build.** Checkout state and tool versions are observed
+- **Recording and signing do not witness the original build.** Checkout state and tool versions are observed
   during recording. Explicit source and original-build time inputs remain caller assertions.
 - **Inspection does not verify artifacts or signatures.** It parses bounded JSONL and reports
   `scope: unsigned_statement`, `status: inspected`; it does not open subjects or compare their bytes.
 - **A builder label is not an authenticated identity.** `builder.id` is a public recorder label.
-  Signing and identity policy remain M4.
+  M4 authenticates an external public key or certificate signer; `--expect-builder` is a separate assertion filter.
 - **Artifact safety is not established.** No vulnerability or malware analysis is performed.
 - **Reproducibility is not established.** No two-build comparison is performed; that verdict remains M6.
 - **Dependency completeness is not established.** M3 can record one explicitly asserted source
   dependency; it does not discover the module graph, generate an SBOM or infer a workflow.
+- **Offline trust freshness is not established.** Verification consumes an externally provisioned root snapshot;
+  it cannot discover later compromise/revocation or prove global log consistency.
 - **Format compatibility is not a SLSA level.** Schema checks and deterministic output do not
   authenticate build honesty, builder identity or compliance.
 
@@ -364,8 +377,9 @@ This list belongs in the README, not only in the plan. It is the single most imp
 ```
 
 Each failure has a stable machine-readable reason string and a one-line explanation.
-Certificate, signing-time, trust-input, key/algorithm and artifact-I/O reasons/precedence also require an
-accepted M4 mapping. See [M4 requirements](phases/M4.md); no failed check can silently select unsigned mode.
+Certificate/time/proof, key/trust input, artifact I/O, kind/size, recorder assertion and output reasons
+have accepted precedence/exits in [ADR 0006](adr/0006-m4-signing-and-offline-verification.md).
+[M4 validation](testing/m4-signing.md) maps planned/additional reasons to tests; no failure selects unsigned mode.
 
 ### 9.4 Hashing rules
 
@@ -382,15 +396,15 @@ outside selected directory artifacts and cannot replace a selected file.
 
 ### 9.5 Signing rules (M4)
 
-- Keyless: OIDC token → Fulcio certificate → sign DSSE → required offline verification material under
-  an accepted M4 trust/time design. Optional Rekor/no-proof sketches do not yet define that design.
+- Keyless: bounded in-process OIDC/Fulcio/Rekor workflow, P-256 ephemeral key, standard v0.3 bundle with
+  SET-authenticated time, proof/checkpoint and certificate/CT evidence under an external trusted-root v0.1 snapshot.
 - Local key: Ed25519 or ECDSA P-256, PEM-encoded, path from `BUILDTRACE_SIGNING_KEY`.
 - The signing payload is the DSSE PAE (`DSSEv1 <len(type)> <type> <len(body)> <body>`), never the raw JSON.
 - The private key is never logged, never written to the attestation, never passed as a CLI argument.
 
 Offline keyless verification needs authenticated local trust roots and signing-time evidence bound to
 the exact payload/signature. A caller timestamp or unsigned log timestamp is insufficient, especially
-after the short-lived leaf expires. Packaging, proof requirements and library pins are proposed in ADR 0006.
+after the short-lived leaf expires. Packaging/proofs/policy are accepted in ADR 0006; patched compatible dependency pins are in ADRs 0007/0008.
 
 ---
 
@@ -514,22 +528,24 @@ GitHub CI and merged-main CI passed. Arbitrary build execution and signing are e
 **Deliverable:** DSSE envelopes, Sigstore keyless signing, local key signing, full verification pipeline with
 identity policy.
 
-Status: **Not started; documentation prepared.** Follow [M4 requirements](phases/M4.md) and resolve
-[proposed ADR 0006](adr/0006-m4-signing-and-offline-verification.md) before dependent code/library changes.
+Status: **Implemented and locally verified**, source `6ef2dd9`; branch unmerged/unpublished.
+[M4 requirements](phases/M4.md), [validation](testing/m4-signing.md) and accepted ADRs 0006-0008
+record actual evidence. Final Windows/Ubuntu/macOS and real authorized keyless CI are pending publication.
 Signer authentication does not turn recorder observations/caller assertions into witnessed build history.
 
 **Acceptance criteria**
 
 - [ ] `record --sign keyless` produces the selected standard bundle/envelope with offline verification material in a real GitHub Actions runner
-- [ ] Verification fails with `identity_mismatch` when the workflow ref differs
-- [ ] Verification fails with `digest_mismatch` when the artifact is modified after signing
-- [ ] Local key signing and verification work with no network
-- [ ] Tampered payload inside the envelope fails signature verification
-- [ ] Each failure reason in section 9.3 has a test
-- [ ] Offline historical keyless verification validates pinned roots and authenticated time after leaf expiry; missing/forged trust evidence fails
-- [ ] Signed policy uses certificate identity/issuer or an external public-key pin, with separate builder/source assertions
-- [ ] Signature/decoded/proof/path/output bounds, secret exclusion and unsigned-downgrade negatives are tested
-- [ ] Independent signed-format checks, unchanged M2/M3 memory/offline/race gates and final CI/audits pass
+- [x] Verification fails with `identity_mismatch` when the workflow ref differs
+- [x] Verification fails with `digest_mismatch` when the artifact is modified after signing
+- [x] Local key signing and verification work with no network
+- [x] Tampered payload inside the envelope fails signature verification
+- [x] Each failure reason in section 9.3 has a test
+- [x] Offline historical keyless verification validates pinned roots and authenticated time after leaf expiry; missing/forged trust evidence fails
+- [x] Signed policy uses certificate identity/issuer or an external public-key pin, with separate builder/source assertions
+- [x] Signature/decoded/proof/path/output bounds, secret exclusion and unsigned-downgrade negatives are tested
+- [x] Independent signed-format checks, unchanged M2/M3 memory/offline/race gates and local runtime/reference audits pass
+- [ ] Final Windows/Ubuntu/macOS and real authorized keyless signing CI pass
 
 ### M5 — GitHub Actions integration
 
@@ -576,12 +592,12 @@ Signer authentication does not turn recorder observations/caller assertions into
 | BT-011A | Unsigned `record` command and field/input mapping | BT-011, BT-007 | M3 | Done; CI passed |
 | BT-012 | `inspect` command | BT-011 | M3 | Done; CI passed |
 | BT-013 | Schema validation against upstream | BT-011 | M3 | Done; CI passed |
-| BT-014 | DSSE encoding and PAE | BT-010 | M4 | Not started |
-| BT-015 | Local key signer and verifier | BT-014 | M4 | Not started |
-| BT-016 | Sigstore keyless signer | BT-014 | M4 | Not started |
-| BT-017 | Offline verification pipeline, artifact mapping and stable reasons | BT-015, BT-016 | M4 | Not started |
-| BT-018 | Identity policy matcher | BT-017 | M4 | Not started |
-| BT-019 | Historical offline trust/tamper/interoperability fixtures | BT-017, BT-018 | M4 | Not started |
+| BT-014 | DSSE encoding and PAE | BT-010 | M4 | Implemented; local verified |
+| BT-015 | Local key signer and verifier | BT-014 | M4 | Implemented; local verified |
+| BT-016 | Sigstore keyless signer | BT-014 | M4 | Implemented; live signing acceptance pending |
+| BT-017 | Offline verification pipeline, artifact mapping and stable reasons | BT-015, BT-016 | M4 | Implemented; local verified |
+| BT-018 | Identity policy matcher | BT-017 | M4 | Implemented; local verified |
+| BT-019 | Historical offline trust/tamper/interoperability fixtures | BT-017, BT-018 | M4 | Implemented; local verified |
 | BT-020 | Reusable GitHub Action | BT-016 | M5 | Not started |
 | BT-021 | Release workflow and artifact upload | BT-020 | M5 | Not started |
 | BT-022 | Consumer verification docs | BT-021 | M5 | Not started |
@@ -597,10 +613,10 @@ Signer authentication does not turn recorder observations/caller assertions into
 
 - **Golden formats:** two synthetic M3 statements are compared byte for byte with committed fixtures.
 - **Tamper matrix:** M2 detects artifact byte/kind/size mismatch. Payload/signature/replay checks belong
-  to the future M4 signed verifier; unsigned M3 inspection does not claim to perform them.
+  to the separate M4 signed verifier; unsigned M3 inspection does not claim to perform them.
 - **Cross-implementation check:** M3 fixtures pass the isolated pinned upstream Protobuf JSON
-  validators via `make schemas`. `cosign`/`slsa-verifier` signature/identity checks require M4 inputs.
-- **Offline test:** packaged M2 verification and M3 record/inspect execute with network disabled.
+  validators via `make schemas`; M4 public fixtures also pass independent DSSE/Sigstore signature, artifact, time and identity checks.
+- **Offline test:** packaged M2/M3 contracts and M4 local/historical keyless verification execute with network disabled and no tool PATH.
   Schema validation uses cached dependencies with module/schema fetching disabled after setup.
 - **Determinism:** equal bytes, metadata, IDs and declared times yield the same statement.
 - **Bounds and mutation:** malformed/duplicate/oversized JSONL fails, and hashing retains M2 mutation
@@ -641,8 +657,7 @@ recording and inspection do not enforce signer policy.
 1. Should `record` fail when the working tree is dirty? *Current: warn, set observed `dirty: true`, continue.*
 2. Where do attestations live for OCI images? *Current: post-1.0.*
 3. Which authenticated time/log/proof material must keyless output carry for offline historical checks?
-   *Pending M4: proposed ADR 0006 recommends a standard self-contained bundle; optional/no-proof assumptions
-   must be resolved before claiming offline keyless verification.*
+   *Resolved by ADR 0006: standard v0.3 bundle, external v0.1 root, SET-authenticated time, inclusion proof/checkpoint and trusted chain/CT evidence. Real authorized signing CI remains pending publication.*
 
 ---
 
@@ -652,14 +667,14 @@ recording and inspection do not enforce signer policy.
 remote, builder and toolchain, plus artifact kind, size and SHA-256. M2 verification checks artifacts
 against an unsigned v1 manifest offline. It does not sign or authenticate metadata. `record`, `inspect`
 now generate/parse unsigned in-toto/SLSA statements with defined observations and caller assertions.
-Signed-attestation verification remains unimplemented; M3 inspection is not a verification verdict.
+M4 source 6ef2dd9 implements bounded signing and external signer/artifact verification with passing local gates. Final real/cross-platform CI remains pending; M3 inspection is not a verification verdict.
 
 **Rules:**
 
 1. Never write "SLSA compliant", "SLSA level 3" or "certified". We produce compatible provenance and claim
    nothing about compliance.
 2. Never say verification proves an artifact is safe, trustworthy or unmodified **by a human attacker**. It
-   checks digests against the supplied unsigned manifest in M2. Signer policy arrives in M4.
+   checks digests against the supplied unsigned manifest in M2. M4 signer policy is a separate authenticated path.
 3. Never claim reproducibility without the M6 test that produced it.
 4. Every attestation claim needs traceable evidence. Caller assertions must be labeled as such;
    an observation of a checkout/toolchain does not authenticate the original build. Never fabricate fields.
@@ -682,7 +697,7 @@ Signed-attestation verification remains unimplemented; M3 inspection is not a ve
 | Envelope | DSSE wrapper carrying the payload and signatures. |
 | Builder label | Self-declared `builder.id`; signing does not independently verify that label. |
 | Signer identity | Certificate/OIDC identity or externally trusted public key checked under M4 policy. |
-| Verification | M2 unsigned artifact comparison; the signed checks in section 9.3 remain M4. |
+| Verification | M2 unsigned artifact comparison; the signed M4 checks in section 9.3 use external policy. |
 | Inspection | M3 offline format parsing and display with explicitly unsigned scope. |
 
 ---
@@ -691,9 +706,9 @@ Signed-attestation verification remains unimplemented; M3 inspection is not a ve
 
 1. Read sections 0, 3, 9 and 10. The trust model is the design.
 2. `make build && ./bin/buildtrace version`.
-3. M1–M3 are merged into `main` with passing CI. Read [M4 requirements](phases/M4.md), proposed ADR 0006,
-   [M3 validation](testing/m3-provenance.md) and preserve ADR 0004/0005 contracts. This preparation is
-   documents only; a later implementation request must resolve signing/trust/dependency decisions first.
+3. M1-M3 remain merged. M4 is implemented/local verified under accepted ADRs 0006-0008. Read
+   [M4 requirements](phases/M4.md), [validation](testing/m4-signing.md) and preserve M2/M3 contracts.
+   Final cross-platform/real signing CI requires applicable publication authorization before merge readiness.
 4. Before adding a predicate field, define its input and whether it is observed or asserted.
 5. Never merge a verification path without a negative test for each failure reason.
 6. Manifest `schemaVersion: 1` is enforced. M2 emits digest/kind and rejects unknown versions.
@@ -702,4 +717,4 @@ Signed-attestation verification remains unimplemented; M3 inspection is not a ve
 7. The repository layout in section 11 is the plan; `internal/manifest` and `internal/cli` were added in
    M1 and are now part of it. M2 uses `internal/hashing` and `internal/verify`.
    M3 implements `internal/attestation` and `pkg/intoto`.
-   `internal/signing` and `internal/sbom` remain later milestones; do not scaffold them early.
+   `internal/signing` is implemented in M4; `internal/sbom` remains M6 and is not scaffolded.
