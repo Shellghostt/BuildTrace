@@ -1,10 +1,10 @@
 FROM golang:1.26.11-alpine AS build
 ARG VERSION=dev
 WORKDIR /src
-COPY go.mod ./
+COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" \
+RUN CGO_ENABLED=0 go build -mod=readonly -trimpath -ldflags "-s -w -X main.version=${VERSION}" \
       -o /out/buildtrace ./cmd/buildtrace
 
 FROM alpine:3.23

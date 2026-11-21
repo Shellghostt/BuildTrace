@@ -18,6 +18,7 @@ import (
 
 	"github.com/shellghostt/buildtrace/internal/manifest"
 	"github.com/shellghostt/buildtrace/internal/metadata"
+	"github.com/shellghostt/buildtrace/internal/signing"
 )
 
 // Exit codes, as defined in docs/PLAN.md section 8.
@@ -50,6 +51,11 @@ type App struct {
 	Git metadata.Runner
 	// LookupEnv reads an environment variable. Empty means os.LookupEnv.
 	LookupEnv func(string) (string, bool)
+	// Context controls cancellation, including keyless requests/publication.
+	Context context.Context
+	// KeylessSigner is an injectable service boundary for failure/output tests.
+	// Production uses signing.SignKeyless, with no service override flags.
+	KeylessSigner func(context.Context, []byte, signing.KeylessOptions) ([]byte, error)
 }
 
 // Run executes one command and returns the exit code.
@@ -100,6 +106,9 @@ func (a *App) applyDefaults() {
 
 // context returns the context the commands run in.
 func (a *App) context() context.Context {
+	if a.Context != nil {
+		return a.Context
+	}
 	return context.Background()
 }
 
@@ -111,8 +120,14 @@ Usage:
                       [--repo <dir>] [--built-at <RFC3339>] [--builder-id <id>]
   buildtrace version
   buildtrace verify --manifest <file> [--root <dir>] [--json]
+  buildtrace verify --attestation <file> --artifact <relative-path> [--artifact ...]
+                    [--subject <canonical-name> ...] [--root <dir>] [--json]
+                    (--public-key <file> | --trusted-root <file> --expect-identity <exact> --expect-issuer <exact>)
+                    [--expect-builder <label>] [--expect-source-uri <uri> --expect-source-commit <commit>]
+                    [--allow-unsigned (without signer policy)]
   buildtrace record --artifact <path> [--artifact <path>...] [--repo <dir>]
-                    [--out <file>] [--sign none] [--builder-id <public-uri>]
+                    [--out <file>] [--sign none|local|keyless] [--trusted-root <file>]
+                    [--builder-id <public-uri>]
                     [--invocation-id <public-id>] [--source-uri <uri> --source-commit <full-commit>]
                     [--started-on <RFC3339> --finished-on <RFC3339>]
   buildtrace inspect --attestation <file> [--json]

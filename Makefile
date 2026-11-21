@@ -2,7 +2,7 @@ BINARY := buildtrace
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 
-.PHONY: bootstrap build test race golden lint fmt vet run manifest memory-gate schema-setup schemas docker clean
+.PHONY: bootstrap build test race golden lint fmt vet run manifest memory-gate schema-setup schemas m4-fixtures trust-setup docker clean
 
 bootstrap:
 	go mod download
@@ -51,8 +51,17 @@ schema-setup:
 schemas:
 	go -C tests/schemas test -mod=readonly -count=1 ./...
 
+# Fixture generation writes public test material only; no private keys persist.
+m4-fixtures:
+	go run -mod=readonly ./tests/fixtures/generate-m4
+
+# Opt-in, networked setup. The verifier only reads the resulting explicit file.
+TRUST_ROOT ?= .tmp/trusted-root.json
+trust-setup:
+	go run -mod=readonly ./tests/trustsetup --out "$(TRUST_ROOT)"
+
 docker:
-	docker build -t buildtrace:$(VERSION) .
+	docker build --build-arg VERSION="$(VERSION)" -t buildtrace:$(VERSION) .
 
 clean:
 	go clean

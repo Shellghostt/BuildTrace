@@ -1,0 +1,35 @@
+{
+  "date": "2026-11-22",
+  "toolchain": "go1.26.11",
+  "platform": "windows/amd64",
+  "cpu": "AMD Ryzen 5 5600H with Radeon Graphics",
+  "signing_profile": {
+    "scope": "Compiled Go signing test harness: repeated small synthetic local signing, bounded envelope/bundle parsing, historical offline keyless verification and cancelled signing; excludes artifact hashing, git and output writes.",
+    "benchmark_duration_per_case_seconds": 1,
+    "benchmarks": [
+      {"name": "BenchmarkM4EnvelopeParse", "iterations": 28862, "ns_per_operation": 42379, "bytes_per_operation": 15048, "allocations_per_operation": 126},
+      {"name": "BenchmarkM4LocalSigning", "iterations": 37140, "ns_per_operation": 33111, "bytes_per_operation": 7173, "allocations_per_operation": 34},
+      {"name": "BenchmarkM4HistoricalOfflineKeyless", "iterations": 583, "ns_per_operation": 2090669, "bytes_per_operation": 424206, "allocations_per_operation": 3303}
+    ],
+    "lifecycle": {"iterations": 300, "heap_before_bytes": 1451440, "heap_after_bytes": 1631544, "heap_delta_bytes": 180104, "goroutine_delta": 0, "retained_heap_delta_limit_bytes": 8388608, "allowed_goroutine_delta": 2},
+    "process": {"peak_working_set_bytes": 78798848, "duration_seconds": 4.4392045, "exit": 0, "poll_interval_milliseconds": 10},
+    "sampled_in_use_profile": {"total_kib": 3100.39, "runtime_threads_kib": 2052, "openapi_country_map_kib": 536.37, "protonmail_curve_initialization_kib": 512.02, "sampling": "Go default allocation sampling; separate from complete runtime.MemStats lifecycle values"}
+  },
+  "large_artifact_gate": {
+    "scope": "Unchanged M2 manifest/verify and M3 unsigned record/inspect workload, independently checked 1 GiB SHA-256, same 64 MiB peak-working-set gate; production Make/Docker compiler flags are now used.",
+    "artifact_bytes": 1073741824,
+    "sha256": "49bc20df15e412a64472421e13fe86ff1c5165e18b2afccf160d4dc19fe68a14",
+    "maximum_peak_working_set_bytes": 67108864,
+    "build_flags": "-trimpath -ldflags '-s -w'",
+    "manifest": {"exit": 0, "peak_working_set_bytes": 18997248, "seconds": 1.1073525},
+    "verify": {"exit": 0, "peak_working_set_bytes": 17678336, "seconds": 0.7508048},
+    "record": {"exit": 0, "peak_working_set_bytes": 19251200, "seconds": 0.9904037},
+    "inspect_exit": 0,
+    "inspect_after_artifact_removal_exit": 0,
+    "tamper_exit": 1,
+    "missing_exit": 2
+  },
+  "fuzz_smoke": {"workers": 4, "requested_seconds_each": 10, "envelope_executions": 86969, "bundle_executions": 198, "envelope_result": "passed", "bundle_result": "passed", "limitation": "Short parser smoke with 1 MiB per generated fuzz input; explicit unit tests separately cover full byte/token/depth/proof boundaries."},
+  "public_good_trust_setup": {"source": "https://tuf-repo-cdn.sigstore.dev", "bootstrap": "sigstore-go v1.3.0 embedded TUF root", "authenticated_root_sha256": "6494e21ea73fa7ee769f85f57d5a3e6a08725eae1e38c755fc3517c9e6bc0b66", "live_keyless_signing": "not run locally; requires authorized GitHub Actions publication"},
+  "limits": "These are bounded synthetic/native measurements, not an artifact-safety, original-build-history, unlimited-lifetime leak-freedom or platform-wide performance claim. Final Windows/Ubuntu/macOS and live signing CI are pending publication."
+}

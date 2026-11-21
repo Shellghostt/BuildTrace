@@ -14,6 +14,9 @@ import (
 )
 
 func (a *App) runVerify(args []string) int {
+	if signedVerifyArgs(args) {
+		return a.runSignedVerify(args)
+	}
 	flags := flag.NewFlagSet("verify", flag.ContinueOnError)
 	flags.SetOutput(a.Stderr)
 	input := flags.String("manifest", "", "unsigned manifest to verify")

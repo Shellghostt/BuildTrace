@@ -6,7 +6,9 @@ Push-Location -LiteralPath $taskRepo
 try {
     New-Item -ItemType Directory -Path 'bin' -Force | Out-Null
     $env:GOTOOLCHAIN = 'go1.26.11'
-    go build -trimpath -o $taskBinary ./cmd/buildtrace
+    # Match the production Make/Docker executable flags. Windows maps PE debug
+    # sections too; measuring a separate debug build is not the shipped CLI.
+    go build -trimpath -ldflags '-s -w' -o $taskBinary ./cmd/buildtrace
     if ($LASTEXITCODE -ne 0) { throw 'CLI build failed' }
     $taskDirectory = Join-Path $taskRepo ('bin/m2-memory-' + [Guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $taskDirectory | Out-Null
@@ -62,7 +64,10 @@ try {
     if ($taskInspection.exit -ne 0 -or ($taskInspection.stdout | ConvertFrom-Json).scope -ne 'unsigned_statement') { throw 'Unsigned inspection did not report its scope' }
     # Only the long-running 1 GiB hashing processes have a sampled RSS gate.
     foreach ($taskRun in @($taskCapture,$taskVerify,$taskRecord)) {
-        if ($taskRun.peak_working_set_bytes -le 0 -or $taskRun.peak_working_set_bytes -ge 64MB) { throw 'Memory measurement is unavailable or exceeds 64 MiB' }
+        if ($taskRun.peak_working_set_bytes -le 0 -or $taskRun.peak_working_set_bytes -ge 64MB) {
+            @($taskCapture,$taskVerify,$taskRecord) | Select-Object exit,peak_working_set_bytes,seconds | ConvertTo-Json -Compress | Write-Output
+            throw 'Memory measurement is unavailable or exceeds 64 MiB'
+        }
     }
     $taskFile = [System.IO.File]::Open($taskArtifact,[System.IO.FileMode]::Open,[System.IO.FileAccess]::ReadWrite)
     try { [void]$taskFile.Seek(512MB,[System.IO.SeekOrigin]::Begin);$taskFile.WriteByte(1) } finally { $taskFile.Dispose() }
@@ -78,7 +83,7 @@ try {
         inspect_exit=$taskInspection.exit; inspect_after_artifact_removal_exit=$taskMissingInspection.exit;
         tamper_exit=$taskTamper.exit; missing_exit=$taskMissing.exit;
         method='Windows OS-reported peak working set, polled every 10 ms during each CLI run';
-        go_toolchain='go1.26.11'; report_directory=$taskDirectory
+        go_toolchain='go1.26.11'; build_flags='-trimpath -ldflags -s -w (production flags)'; report_directory=$taskDirectory
     }
     $taskJSON = $taskResult | ConvertTo-Json -Depth 5
     Set-Content -LiteralPath (Join-Path $taskDirectory 'result.json') -Value $taskJSON -Encoding utf8NoBOM

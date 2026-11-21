@@ -2,10 +2,12 @@
 # Run the actual runtime image with no network and no persistent test data.
 set -euo pipefail
 image=${1:-buildtrace:ci}
+fixture_dir=$(cd "$(dirname "$0")/../fixtures/m4" && pwd)
+if command -v cygpath >/dev/null 2>&1; then fixture_dir=$(cygpath -m "$fixture_dir"); fi
 [[ $(docker image inspect --format '{{.Config.User}}' "$image") == '65532:65532' ]]
-docker run --rm --network none --read-only "$image"
-docker run --rm -i --network none --read-only --cap-drop ALL \
-  --tmpfs /work:mode=1777 --entrypoint /bin/sh "$image" -s <<'CONTAINER'
+MSYS_NO_PATHCONV=1 docker run --rm --network none --read-only "$image"
+MSYS_NO_PATHCONV=1 docker run --rm -i --network none --read-only --cap-drop ALL \
+  -v "$fixture_dir:/fixtures:ro" --tmpfs /work:mode=1777 --entrypoint /bin/sh "$image" -s <<'CONTAINER'
 set -eu
 binary=/usr/local/bin/buildtrace
 test "$(id -u)" = 65532
@@ -48,6 +50,38 @@ grep -q '"status":"inspected"' /work/inspection.json
 PATH=/no-tools "$binary" inspect --attestation /work/artifacts.intoto.jsonl >/work/inspection.txt
 grep -q 'builder label:' /work/inspection.txt
 grep -q 'dependencies: none recorded' /work/inspection.txt
+
+# M4 authenticates externally pinned public fixtures, including a historical
+# leaf certificate that expired in 2025. PATH and Docker networking are disabled.
+for algorithm in ed25519 p256; do
+  PATH=/no-tools "$binary" verify --attestation "/fixtures/local-$algorithm.dsse.json" \
+    --artifact artifact.txt --root /fixtures --public-key "/fixtures/$algorithm.pub.pem" \
+    --json >"/work/signed-$algorithm.json"
+  grep -q '"status":"verified"' "/work/signed-$algorithm.json"
+  grep -q '"authenticated":true' "/work/signed-$algorithm.json"
+done
+identity='https://fixture.invalid/owner/repository/.github/workflows/m4.yml@refs/heads/m4'
+issuer='https://issuer.fixture.invalid'
+PATH=/no-tools "$binary" verify --attestation /fixtures/historical.sigstore.json \
+  --artifact artifact.txt --root /fixtures --trusted-root /fixtures/trusted-root.json \
+  --expect-identity "$identity" --expect-issuer "$issuer" --json >/work/keyless.json
+grep -q '"authenticatedSigningTime":"2025-01-01T00:05:00Z"' /work/keyless.json
+code=0
+PATH=/no-tools "$binary" verify --attestation /fixtures/historical.sigstore.json \
+  --artifact artifact.txt --root /fixtures --trusted-root /fixtures/trusted-root.json \
+  --expect-identity "$identity-wrong" --expect-issuer "$issuer" --json >/work/identity.json || code=$?
+test "$code" = 1
+grep -q '"reason":"identity_mismatch"' /work/identity.json
+printf tampered >/work/selected.txt
+code=0
+PATH=/no-tools "$binary" verify --attestation /fixtures/local-ed25519.dsse.json \
+  --artifact selected.txt --subject artifact.txt --root /work \
+  --public-key /fixtures/ed25519.pub.pem --json >/work/signed-tamper.json || code=$?
+test "$code" = 1
+grep -q '"reason":"digest_mismatch"' /work/signed-tamper.json
+PATH=/no-tools "$binary" verify --attestation /work/artifacts.intoto.jsonl \
+  --artifact app --root /work/repo --allow-unsigned --json >/work/unsigned-opt-in.json
+grep -q '"authenticated":false' /work/unsigned-opt-in.json
 
 expect_cli_failure() {
   expected=$1
@@ -97,5 +131,5 @@ rm app
 expect_failure 2 artifact_missing /work/manifest.json
 PATH=/no-tools "$binary" inspect --attestation /work/artifacts.intoto.jsonl --json >/work/inspection-missing.json
 grep -q '"status":"inspected"' /work/inspection-missing.json
-printf 'BuildTrace container: nonroot/read-only M2 hashing/verification and M3 unsigned record/inspect, deterministic output, bounds, collisions, signing rejection and negative checks passed.\n'
+printf 'BuildTrace container: nonroot/read-only M2/M3 contracts and M4 local/historical keyless verification, explicit unsigned scope, identity/tamper negatives passed with network and tools disabled.\n'
 CONTAINER

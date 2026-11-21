@@ -72,6 +72,14 @@ jobs:
         if: runner.os == 'Linux'
         run: go test ./internal/attestation -run '^$' -fuzz FuzzRead -fuzztime=10s
 
+      - name: DSSE envelope parser fuzz smoke
+        if: runner.os == 'Linux'
+        run: go test ./internal/signing -run '^$' -fuzz '^FuzzDecodeEnvelope$' -fuzztime=10s
+
+      - name: Keyless bundle parser fuzz smoke
+        if: runner.os == 'Linux'
+        run: go test ./internal/signing -run '^$' -fuzz '^FuzzDecodeKeylessBundle$' -fuzztime=10s
+
   schemas:
     name: Offline provenance schemas
     runs-on: ubuntu-latest
@@ -117,7 +125,45 @@ jobs:
       - name: govulncheck
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./...
+          govulncheck -test ./...
       - name: Audit isolated reference validator
         working-directory: tests/schemas
-        run: govulncheck ./...
+        run: govulncheck -test ./...
+
+  keyless:
+    name: Keyless signing and offline verification
+    # Fork PRs cannot obtain this repository's OIDC signing authority. A
+    # same-repository authorized branch/PR runs the complete live evidence.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      EXPECTED_IDENTITY: https://github.com/${{ github.workflow_ref }}
+      EXPECTED_ISSUER: https://token.actions.githubusercontent.com
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build the pinned CLI
+        run: make VERSION=m4-ci build
+      - name: Sign synthetic artifact and verify in a network-disabled container
+        run: bash tests/keyless/live.sh bin/buildtrace buildtrace:m4-keyless
+      - name: Preserve public keyless verification evidence
+        if: success()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: m4-keyless-evidence-${{ github.run_id }}
+          retention-days: 7
+          include-hidden-files: true
+          path: |
+            bin/m4-live.sigstore.json
+            bin/m4-live/artifact.txt
+            .tmp/m4-live-trusted-root.json
+            .tmp/m4-live-verified.json
+            .tmp/m4-live-identity-negative.json
+            .tmp/m4-live-tamper-negative.json
