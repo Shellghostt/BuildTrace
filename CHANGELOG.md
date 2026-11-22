@@ -9,6 +9,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- M4 exact-byte DSSE/PAE, local Ed25519/P-256 keys, standard Sigstore v0.3 keyless bundles,
+  external key/root/identity policy and selected rooted artifact verification under accepted ADRs 0006-0008.
+- Historical synthetic certificate/CT/Rekor fixtures, strict bounds/negative scope/reason tests,
+  separate unsigned opt-in and scoped signer/checked/unselected reports. M2/M3 default bytes/contracts remain compatible.
+- Independent signed fixtures, patched module/license inventory and focused live GitHub OIDC CI job.
+  [Local validation](docs/testing/m4-signing.md) and [resource measurements](docs/benchmarks/m4-signing.md)
+  preserve source `6ef2dd9`; corrected source `91a11df` passed all eight cross-platform/live signing CI jobs.
+  [Structured CI evidence](docs/testing/m4-ci-results.json) records actual results; PR #3 is published/unmerged.
 - [M3 requirements](docs/phases/M3.md) with phase boundaries, failure cases, ADR prerequisites and
   acceptance gates, plus a [development-tool audit](docs/DEVELOPMENT-TOOLS.md).
 - M3 unsigned `record` and offline `inspect`, using in-toto Statement v1/SLSA provenance v1 and
@@ -22,7 +30,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   checksums, a schema CI job and a separate validator vulnerability scan.
 - Extended 1 GiB and packaged-container checks for M3, parser fuzzing and Go allocation/heap profiles.
   [Validation](docs/testing/m3-provenance.md) passed locally and in Windows/Ubuntu/macOS CI on
-  2026-11-17; review is pending.
+  2026-11-17; M3 is merged through PR #2.
 
 - M2 streaming file SHA-256, canonical directory hashing and symlink entries without following targets.
 - `verify --manifest` with offline recomputation of kind, digest and size, stable JSON reports and
@@ -34,6 +42,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   for code navigation. Nothing in the build or in CI depends on it.
 
 ### Changed
+
+- M4 adds statically linked signing dependencies with explicit compatible pins and runtime/test audits.
+- The 1 GiB/64 MiB memory gate now uses production Make/Docker `-trimpath -ldflags '-s -w'` flags;
+  its artifact workload, independent digest and memory threshold are unchanged. Initial debug-build failure is recorded.
+- The Make image target passes its version to the binary; Docker copies committed go.mod/go.sum and builds read-only modules.
 
 - The repository is published at https://github.com/Shellghostt/BuildTrace and the CI workflow has
   executed. The first run on 2026-11-13 passed the Windows, Ubuntu and macOS matrix, the lint job and
@@ -48,6 +61,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- Required certificate issuer evidence, authenticated SET/checkpoint/tree consistency and explicit trust-root key handling
+  reject incomplete/forged keyless material. Shared standard roots keep unused Rekor v2 entries without enabling v2 verification.
+- TUF setup retains typed root-rotation HTTP/size errors; signing diagnostics exclude token/key/service response material.
+- Rekor v1 global SET indexes and shard-local inclusion indexes are verified separately; authenticated
+  sharded fixtures and live signing pass. The POSIX encrypted-key test now creates a private file with correct permissions.
+- The signing dependency audit's six vulnerabilities were addressed through compatible patched modules and maintained OpenPGP.
+
 - Manifest output cannot replace an artifact or live inside a selected directory. Temporary sibling
   writes avoid truncating destination symlink/hardlink targets.
 - Directory mutation checks use rooted stat metadata on Windows, avoiding false changes from cached
@@ -60,8 +80,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Planned
 
-- M4 DSSE/signing, signature verification and identity policy; M5 CI integration and M6 dependency/SBOM
-  and reproducibility work remain unimplemented.
+- M5 reusable action/release integration and M6 dependency/SBOM/reproducibility remain future work.
 
 ## [0.1.0] - 2026-11-13
 

@@ -1,18 +1,12 @@
-// Command buildtrace records how an artifact was built and verifies one.
-//
-// The commands are:
-//
-//	buildtrace manifest --artifact dist/app --out buildtrace.json
-//	buildtrace version
-//
-// `record`, `verify` and `inspect` arrive with the later milestones. The
-// tool says so rather than pretending they exist.
-//
-// See docs/PLAN.md for the specification this implements.
+// Command buildtrace records artifact observations and verifies selected bytes
+// under explicit unsigned-manifest or external signer policy.
 package main
 
 import (
+	"context"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/shellghostt/buildtrace/internal/cli"
 )
@@ -23,10 +17,14 @@ import (
 var version = "dev"
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	app := &cli.App{
 		Version: version,
 		Stdout:  os.Stdout,
 		Stderr:  os.Stderr,
+		Context: ctx,
 	}
-	os.Exit(app.Run(os.Args[1:]))
+	code := app.Run(os.Args[1:])
+	stop()
+	os.Exit(code)
 }
