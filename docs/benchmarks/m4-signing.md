@@ -2,7 +2,7 @@
 
 Source: `6ef2dd9`, Go 1.26.11, Windows/amd64, AMD Ryzen 5 5600H. Structured actual data:
 [m4-signing-results.json](m4-signing-results.json). [M4 validation](../testing/m4-signing.md) identifies
-the commands, negative cases, fixes and pending live/cross-platform evidence.
+the commands, negative cases, fixes and subsequently passed live/cross-platform evidence.
 
 ## Bounded small-fixture lifecycle
 
@@ -58,4 +58,6 @@ Ten-second native fuzz smokes used four workers and a one-MiB cap on generated f
 86,969 envelope and 198 bundle executions passed. Low bundle throughput is not exhaustive work-bound
 evidence. Explicit tests separately exercise decoded 16 MiB, outer 32 MiB, depth 64, 200,000 tokens,
 signature selection/count, certificate/proof/root limits and malformed/tampered security input.
-Live signing network/performance and final Windows/Ubuntu/macOS CI have not run before publication.
+These local measurements predate publication. Subsequent source `91a11df` passed all eight
+Windows/Ubuntu/macOS and real keyless signing/offline CI jobs; [the separate CI receipt](../testing/m4-ci-results.json)
+records hosted memory and real signer/artifact evidence. No live signing performance benchmark is claimed.

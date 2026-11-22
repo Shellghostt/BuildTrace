@@ -1,10 +1,10 @@
 # M4 signing and offline verification validation — 2026-11-22
 
-Status: **Implemented and verified locally on `feat/m4-implementation`, source `6ef2dd9`.**
+Status: **Complete and verified locally/in CI on `feat/m4-implementation`, source `91a11df`.**
 The original local baseline is source `6ef2dd9`; subsequent published CI corrections are recorded below.
 The feature branch is published in [PR #3](https://github.com/Shellghostt/BuildTrace/pull/3), unmerged.
-Final GitHub Windows/Ubuntu/macOS CI and real authorized keyless signing remain **pending successful CI**,
-so M4's live/CI acceptance boxes remain open. No release or merge is claimed.
+Both source workflows passed **all eight jobs**, including Windows/Ubuntu/macOS and real authorized
+keyless signing/offline verification. All M4 acceptance boxes are complete. No release or merge is claimed.
 Accepted [ADR 0006](../adr/0006-m4-signing-and-offline-verification.md) preceded signing code;
 [0007](../adr/0007-m4-audited-dependency-pins.md) and [0008](../adr/0008-m4-resolved-protobuf-patch.md)
 record the audited compatible dependency graph without rewriting prior decisions.
@@ -59,7 +59,7 @@ step, not evidence that a signing operation occurred. Offline tests consume prep
 | Independent PAE, UTF-8 byte lengths, exact payload LF | `TestPAEIndependentVectors`, `TestLocalAlgorithmsAuthenticateExactPayloadAndIndependentVerifier`, `TestM4LocalRecordPreservesM3PayloadAndVerifiesWithoutGitClockOrEnvironment` |
 | Duplicate/case/unknown fields, base64, signatures, bytes/depth/tokens | `TestEnvelopeSecurityFieldsAndSignatureSelection`, `TestEnvelopeDecodedAndOuterBounds`, `TestBundleAndRootRejectDuplicateUnknownAliasesAndUnsupportedAlternatives`, parser fuzz seeds/smokes |
 | External Ed25519/P-256 trust, PEM/algorithm and file handling | `TestPrivateAndPinnedPublicPEMFormats`, `TestKeysRejectUnsupportedAlgorithmsMaterialAndPrivateFileModes`, `TestPinnedPublicKeysRejectPrivateMalformedAndUnsupportedInputs`, wrong-key DSSE tests |
-| Keyless signer packaging and no unsigned fallback | Compiled standard signer; `TestOIDCAndCancelledTransportExcludeSecretsAndBoundResponses`, `TestM4SigningFailureCancellationAndOutputNeverPublishPartialOrPrivateMaterial`; real GitHub/Fulcio/Rekor signing still pending |
+| Keyless signer packaging and no unsigned fallback | `TestOIDCAndCancelledTransportExcludeSecretsAndBoundResponses`, `TestM4SigningFailureCancellationAndOutputNeverPublishPartialOrPrivateMaterial`; real GitHub/Fulcio/Rekor signing and network-disabled verification passed in the source CI |
 | Historical certificate/time/SET/proof/CT/root/identity | `TestKeylessHistoricalOfflineAndIndependentSigstoreVerification`, `TestKeylessTamperTrustTimeIdentityAndProofMatrix`, `TestMissingSCTIssuerAndOutOfLeafTimeFailWithAuthenticLogBinding`, `TestTrustRootLogKeyAndCertificateBounds` |
 | Artifact/subject/kind/size/type/source failure reasons | `TestSignedRecorderContractAndStableFailureReasons`, `TestExactRecorderLabelAndDeclaredDependencyPolicy`, `TestM4SignedCLIReasonsExitsAndExactlyOneReport`, `TestM4KeylessCLIHistoricalIdentityTrustAndTamperExits` |
 | Selected rooted reads, relocation and unselected scope | `TestSignedVerificationChecksScopeSelectedBytesAndRelocation`, `TestSelectedSubjectsDoNotOpenUnselectedArtifactPaths`, `TestArtifactMappingRejectsTraversalAbsoluteAndDuplicatePaths`, `TestRootedHashPreservesM2CanonicalBytesAndPreventsParentEscape` |
@@ -69,7 +69,7 @@ step, not evidence that a signing operation occurred. Offline tests consume prep
 | Independent signed interoperability | Eight public fixture checksums plus `TestM4IndependentDSSESignaturesAndUnsignedPayloadSchema` / `TestM4IndependentHistoricalSigstoreArtifactTimeAndIdentity` in the isolated reference module |
 | M2/M3 regression, native race, image and memory | Canonical gates above, existing goldens/mutation/parser suites and unchanged artifact workload/64 MiB budget |
 | Runtime resources | `TestRepeatedSigningParsingAndCancellationReleaseHeapAndGoroutines`, native OS peak-working-set and Go allocation/heap measurements; input/resource limits separately tested |
-| Final cross-platform and real keyless CI | Prepared eight-job workflow, including narrowly scoped OIDC job and network-disabled consumer verification; **not run before publication** |
+| Final cross-platform and real keyless CI | Both source push/PR workflows passed all eight jobs, including narrowly scoped OIDC signing and network-disabled consumer verification; structured evidence below |
 
 The isolated reference module does not import BuildTrace internals. Its DSSE verifier is a separate
 implementation; keyless checks call Sigstore-Go directly, which is also the production cryptographic
@@ -125,7 +125,29 @@ After these corrections, native Windows race passed for signing (28.070s) and CL
 vet/lint reported 0 issues, and the complete signing package passed in Go 1.26.11 Linux (2.340s)
 with network disabled and prepared modules. Full published CI/live signing remains a separate gate.
 
-## Reproduction and pending evidence
+## Passed source CI and real signing
+
+Source `91a11dfb114af28b72e7522a316e9b7b0279bb90` passed all eight jobs in both
+[PR CI](https://github.com/Shellghostt/BuildTrace/actions/runs/45051998762) and
+[push CI](https://github.com/Shellghostt/BuildTrace/actions/runs/45051994657). The
+[structured results](m4-ci-results.json) retain job IDs, public bundle/root hashes, actual signer/time,
+artifact checks, negative reasons and the hosted Windows 1 GiB gate.
+
+The PR job's exact certificate identity is
+`https://github.com/Shellghostt/BuildTrace/.github/workflows/ci.yml@refs/pull/3/merge`, issued by
+`https://token.actions.githubusercontent.com`. Its SET authenticates `2026-11-22T17:54:58Z`.
+The real global/local Rekor indexes are `4047264179` / `3925359917`; separate signed SET and
+checkpoint/Merkle verification succeeded. The network-disabled packaged consumer returned
+`signed_statement / verified`, `authenticated: true`; wrong identity and modified artifact returned
+`identity_mismatch` and `digest_mismatch` respectively. The root SHA-256 matches the authenticated
+TUF setup snapshot recorded above. GitHub's public evidence artifact is retained for seven days;
+the committed structured receipt preserves its hashes and verdicts.
+
+Hosted Windows peaks were manifest 18,395,136 B, verify 16,613,376 B and unsigned record 17,977,344 B,
+under the unchanged 64 MiB threshold. Tamper returned 1, missing artifact 2; inspection still passed
+after artifact deletion. These hosted measurements are separate from the original native baseline.
+
+## Reproduction and limits
 
 In PowerShell, pin `GOTOOLCHAIN=go1.26.11` for networked setup/build and prepend the x64 GCC directory for
 race. Run `make VERSION=m4-local` with the relevant target. Before `make schemas`, provision dependencies
@@ -135,7 +157,8 @@ and locate the actual compiler using `go env GOROOT`, prepend its `bin`, then se
 The focused GitHub job alone has `id-token: write`. It signs disposable public data with the actual workflow
 identity, consumes the explicit root in a network-disabled container and checks wrong identity/artifact.
 It does not publish a release or implement M5's reusable action. Feature-branch publication requires the
-user's applicable authorization. Final CI/live success remains required before M4 merge readiness.
+user's applicable authorization. Source CI/live success is recorded above; review the current PR head
+and its checks before merging.
 
 Windows ACL secrecy is the caller's responsibility; Go permission bits do not establish Windows ACLs.
 Offline verification cannot discover later root/log compromise or revocation and does not prove global

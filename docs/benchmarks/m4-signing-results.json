@@ -30,6 +30,6 @@
     "missing_exit": 2
   },
   "fuzz_smoke": {"workers": 4, "requested_seconds_each": 10, "envelope_executions": 86969, "bundle_executions": 198, "envelope_result": "passed", "bundle_result": "passed", "limitation": "Short parser smoke with 1 MiB per generated fuzz input; explicit unit tests separately cover full byte/token/depth/proof boundaries."},
-  "public_good_trust_setup": {"source": "https://tuf-repo-cdn.sigstore.dev", "bootstrap": "sigstore-go v1.3.0 embedded TUF root", "authenticated_root_sha256": "6494e21ea73fa7ee769f85f57d5a3e6a08725eae1e38c755fc3517c9e6bc0b66", "live_keyless_signing": "not run locally; requires authorized GitHub Actions publication"},
-  "limits": "These are bounded synthetic/native measurements, not an artifact-safety, original-build-history, unlimited-lifetime leak-freedom or platform-wide performance claim. Final Windows/Ubuntu/macOS and live signing CI are pending publication."
+  "public_good_trust_setup": {"source": "https://tuf-repo-cdn.sigstore.dev", "bootstrap": "sigstore-go v1.3.0 embedded TUF root", "authenticated_root_sha256": "6494e21ea73fa7ee769f85f57d5a3e6a08725eae1e38c755fc3517c9e6bc0b66", "live_keyless_signing": "not run locally; subsequent source 91a11df passed real authorized GitHub signing/offline CI; separate evidence is in docs/testing/m4-ci-results.json"},
+  "limits": "These are bounded synthetic/native source 6ef2dd9 measurements, not an artifact-safety, original-build-history, unlimited-lifetime leak-freedom or platform-wide performance claim. Subsequent source 91a11df passed all eight Windows/Ubuntu/macOS and live signing/offline CI jobs; separate actual CI evidence is in docs/testing/m4-ci-results.json."
 }

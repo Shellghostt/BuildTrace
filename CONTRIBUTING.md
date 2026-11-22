@@ -9,8 +9,8 @@ Thanks for taking the time. This document is deliberately short and specific.
 2. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - how the pieces fit together.
 3. [docs/adr/](docs/adr/) - decisions that have already been argued about. Do not relitigate them
    without a new ADR.
-4. [docs/phases/M4.md](docs/phases/M4.md) - implemented signing/trust policy and local/pending-live acceptance;
-   preserve [M3 contracts](docs/phases/M3.md). ADRs 0006-0008 are accepted; final real/cross-platform CI is pending publication.
+4. [docs/phases/M4.md](docs/phases/M4.md) - implemented signing/trust policy and completed local/live CI acceptance;
+   preserve [M3 contracts](docs/phases/M3.md). ADRs 0006-0008 are accepted; all eight source CI jobs passed.
 5. [docs/DEVELOPMENT-TOOLS.md](docs/DEVELOPMENT-TOOLS.md) - CodeGraph freshness, static-analysis coverage
    and profiling appropriate to this repository's runtime.
 

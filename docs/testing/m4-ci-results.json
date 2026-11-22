@@ -1,0 +1,161 @@
+{
+  "date": "2026-11-22",
+  "source": "91a11dfb114af28b72e7522a316e9b7b0279bb90",
+  "scope": "M4 source CI on the published feature branch, not a merge or release",
+  "runs": [
+    {
+      "id": 45051998762,
+      "event": "pull_request",
+      "url": "https://github.com/Shellghostt/BuildTrace/actions/runs/45051998762",
+      "source": "91a11dfb114af28b72e7522a316e9b7b0279bb90",
+      "jobs": [
+        {
+          "name": "Keyless signing and offline verification",
+          "id": 137298941538,
+          "conclusion": "success"
+        },
+        {
+          "name": "Build and test (macos-latest)",
+          "id": 137298941662,
+          "conclusion": "success"
+        },
+        {
+          "name": "Container image integration",
+          "id": 137298941704,
+          "conclusion": "success"
+        },
+        {
+          "name": "Build and test (windows-latest)",
+          "id": 137298941707,
+          "conclusion": "success"
+        },
+        {
+          "name": "Vulnerability scan",
+          "id": 137298941748,
+          "conclusion": "success"
+        },
+        {
+          "name": "Build and test (ubuntu-latest)",
+          "id": 137298941838,
+          "conclusion": "success"
+        },
+        {
+          "name": "Offline provenance schemas",
+          "id": 137298941901,
+          "conclusion": "success"
+        },
+        {
+          "name": "Lint",
+          "id": 137298941903,
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 45051994657,
+      "event": "push",
+      "url": "https://github.com/Shellghostt/BuildTrace/actions/runs/45051994657",
+      "source": "91a11dfb114af28b72e7522a316e9b7b0279bb90",
+      "jobs": [
+        {
+          "name": "Offline provenance schemas",
+          "id": 137298927961,
+          "conclusion": "success"
+        },
+        {
+          "name": "Build and test (windows-latest)",
+          "id": 137298928126,
+          "conclusion": "success"
+        },
+        {
+          "name": "Lint",
+          "id": 137298928178,
+          "conclusion": "success"
+        },
+        {
+          "name": "Vulnerability scan",
+          "id": 137298928201,
+          "conclusion": "success"
+        },
+        {
+          "name": "Build and test (ubuntu-latest)",
+          "id": 137298928266,
+          "conclusion": "success"
+        },
+        {
+          "name": "Container image integration",
+          "id": 137298928285,
+          "conclusion": "success"
+        },
+        {
+          "name": "Build and test (macos-latest)",
+          "id": 137298928303,
+          "conclusion": "success"
+        },
+        {
+          "name": "Keyless signing and offline verification",
+          "id": 137298928332,
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "live_keyless": {
+    "bundle_sha256": "f2be1254a7009154f77c0c6961aeeefe8fc85cd90506ae980ec7768fd2ac4037",
+    "trusted_root_sha256": "6494e21ea73fa7ee769f85f57d5a3e6a08725eae1e38c755fc3517c9e6bc0b66",
+    "signer": {
+      "mode": "keyless",
+      "keyId": "sha256:dc46beb76cdf373c78add4f4e57ef8a334d6b0f3079ce2063e663d08f5949da4",
+      "identity": "https://github.com/Shellghostt/BuildTrace/.github/workflows/ci.yml@refs/pull/3/merge",
+      "issuer": "https://token.actions.githubusercontent.com",
+      "authenticatedSigningTime": "2026-11-22T17:54:58Z",
+      "certificateNotBefore": "2026-11-22T17:54:58Z",
+      "certificateNotAfter": "2026-11-22T18:04:58Z",
+      "trustRootSha256": "6494e21ea73fa7ee769f85f57d5a3e6a08725eae1e38c755fc3517c9e6bc0b66"
+    },
+    "artifact": {
+      "subject": "bin/m4-live/artifact.txt",
+      "path": "bin/m4-live/artifact.txt",
+      "kind": "file",
+      "size": 45,
+      "sha256": "3dd404c63fc7e0a8e87f6014df23247fac88d7b2e43a4d157525e586635067cc",
+      "expectedSha256": "3dd404c63fc7e0a8e87f6014df23247fac88d7b2e43a4d157525e586635067cc",
+      "digestMatched": true,
+      "kindAndSizeMatched": true
+    },
+    "set_global_log_index": "4047264179",
+    "proof_local_log_index": "3925359917",
+    "proof_tree_size": "3925359918",
+    "negative_reasons": [
+      "identity_mismatch",
+      "digest_mismatch"
+    ],
+    "verification_execution": "network-disabled read-only nonroot packaged CLI"
+  },
+  "windows_large_artifact_gate": {
+    "artifact_bytes": 1073741824,
+    "sha256": "49bc20df15e412a64472421e13fe86ff1c5165e18b2afccf160d4dc19fe68a14",
+    "maximum_peak_working_set_bytes": 67108864,
+    "toolchain": "go1.26.11",
+    "build_flags": "-trimpath -ldflags -s -w (production flags)",
+    "manifest": {
+      "exit": 0,
+      "peak_working_set_bytes": 18395136,
+      "seconds": 1.1160522
+    },
+    "verify": {
+      "exit": 0,
+      "peak_working_set_bytes": 16613376,
+      "seconds": 0.7396151
+    },
+    "record": {
+      "exit": 0,
+      "peak_working_set_bytes": 17977344,
+      "seconds": 1.2187315
+    },
+    "inspect_exit": 0,
+    "inspect_after_artifact_removal_exit": 0,
+    "tamper_exit": 1,
+    "missing_exit": 2
+  }
+}

@@ -15,7 +15,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   separate unsigned opt-in and scoped signer/checked/unselected reports. M2/M3 default bytes/contracts remain compatible.
 - Independent signed fixtures, patched module/license inventory and focused live GitHub OIDC CI job.
   [Local validation](docs/testing/m4-signing.md) and [resource measurements](docs/benchmarks/m4-signing.md)
-  passed on source `6ef2dd9`; final cross-platform/live signing CI remains pending publication and M4 is unmerged.
+  preserve source `6ef2dd9`; corrected source `91a11df` passed all eight cross-platform/live signing CI jobs.
+  [Structured CI evidence](docs/testing/m4-ci-results.json) records actual results; PR #3 is published/unmerged.
 - [M3 requirements](docs/phases/M3.md) with phase boundaries, failure cases, ADR prerequisites and
   acceptance gates, plus a [development-tool audit](docs/DEVELOPMENT-TOOLS.md).
 - M3 unsigned `record` and offline `inspect`, using in-toto Statement v1/SLSA provenance v1 and
@@ -63,6 +64,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Required certificate issuer evidence, authenticated SET/checkpoint/tree consistency and explicit trust-root key handling
   reject incomplete/forged keyless material. Shared standard roots keep unused Rekor v2 entries without enabling v2 verification.
 - TUF setup retains typed root-rotation HTTP/size errors; signing diagnostics exclude token/key/service response material.
+- Rekor v1 global SET indexes and shard-local inclusion indexes are verified separately; authenticated
+  sharded fixtures and live signing pass. The POSIX encrypted-key test now creates a private file with correct permissions.
 - The signing dependency audit's six vulnerabilities were addressed through compatible patched modules and maintained OpenPGP.
 
 - Manifest output cannot replace an artifact or live inside a selected directory. Temporary sibling
@@ -77,8 +80,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Planned
 
-- M4 final real/cross-platform CI acceptance is pending publication; M5 reusable action/release integration
-  and M6 dependency/SBOM/reproducibility remain future work.
+- M5 reusable action/release integration and M6 dependency/SBOM/reproducibility remain future work.
 
 ## [0.1.0] - 2026-11-13
 

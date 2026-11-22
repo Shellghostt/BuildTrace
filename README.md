@@ -2,15 +2,16 @@
 
 > An open-source build provenance and artifact verification system.
 
-![status](https://img.shields.io/badge/status-M4_locally_verified-blue)
+![status](https://img.shields.io/badge/status-M4_complete-green)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 ![Go](https://img.shields.io/badge/go-1.26-00ADD8?logo=go&logoColor=white)
 
-**Status: M4 implemented and verified locally on `feat/m4-implementation`, source `6ef2dd9`.**
+**Status: M4 complete and verified locally/in CI on `feat/m4-implementation`, source `91a11df`.**
 M1–M3 remain merged. M4 adds local Ed25519/P-256 signing, a standard keyless Sigstore bundle and
 offline signature/identity/selected-artifact checks. Native Windows race, lint, schemas, audits,
-memory and network-disabled container gates passed. **Final GitHub cross-platform CI and live
-keyless signing are pending publication; the M4 branch is unmerged.** No release is claimed.
+memory and network-disabled container gates passed. **All eight GitHub CI jobs passed, including real
+keyless signing and offline verification.** [PR #3](https://github.com/Shellghostt/BuildTrace/pull/3)
+is open for review; the M4 branch is unmerged and no release is claimed.
 The default `record --sign none`, unsigned `inspect`, and M2 manifest contracts remain compatible.
 
 ## Why this exists
@@ -29,8 +30,8 @@ bytes with an unsigned manifest; M4 authenticates signed statements under an ext
 | Strip credentials from the recorded remote | M1 | **Done** |
 | Generate and verify artifact hashes | M2 | **Done (merged)** |
 | Record and inspect unsigned in-toto/SLSA provenance | M3 | **Done (merged)** |
-| Local signing and offline signature/artifact policy | M4 | **Implemented; local gates passed** |
-| Keyless signing with complete offline bundle | M4 | **Implemented; real GitHub signing/CI pending** |
+| Local signing and offline signature/artifact policy | M4 | **Done; local and CI gates passed** |
+| Keyless signing with complete offline bundle | M4 | **Done; real signing/offline CI passed** |
 | CI/CD integration | M5 | Not started |
 | Track dependencies | M6 | Not started |
 | SBOM support | M6 | Not started |
@@ -239,7 +240,8 @@ keys and URLs do not provide trust. In an authorized GitHub Actions runner with 
 `record --artifact dist/app --sign keyless --trusted-root trusted-root.json --out app.sigstore.json` obtains the OIDC token
 in process. A separately supplied bounded private `BUILDTRACE_OIDC_TOKEN_FILE` is also supported.
 Neither token nor ephemeral private key is written to the attestation or git environment.
-The focused M4 live CI check is prepared but has **not run before publication**.
+The focused [M4 live CI check](https://github.com/Shellghostt/BuildTrace/actions/runs/45051998762)
+passed with real GitHub OIDC/Fulcio/Rekor signing and network-disabled consumer verification.
 
 Consumers supply exact certificate identity and issuer from their policy:
 
@@ -334,16 +336,18 @@ M3 is **complete and merged** through [PR #2](https://github.com/Shellghostt/Bui
 [main CI](https://github.com/Shellghostt/BuildTrace/actions/runs/44006031195). Read the
 [acceptance evidence](docs/testing/m3-provenance.md) and [phase contract](docs/phases/M3.md).
 [M4 requirements](docs/phases/M4.md), [validation](docs/testing/m4-signing.md) and
-[resource measurements](docs/benchmarks/m4-signing.md) record implemented source `6ef2dd9` and passing
-local gates. **Final cross-platform and real authorized keyless CI are pending publication.** The
-branch is local/unmerged; M5 reusable action/release and M6 SBOM/reproducibility remain future work.
+[resource measurements](docs/benchmarks/m4-signing.md) preserve the original local source `6ef2dd9` evidence.
+Source `91a11df` passed all eight [PR CI jobs](https://github.com/Shellghostt/BuildTrace/actions/runs/45051998762),
+including real keyless signing. [Structured CI evidence](docs/testing/m4-ci-results.json) records the
+actual signer, artifact and unchanged Windows memory gate. PR #3 is published/unmerged;
+M5 reusable action/release and M6 SBOM/reproducibility remain future work.
 
 | Milestone | Deliverable | Status |
 |---|---|---|
 | M1 | Build metadata collection and manifest generation | **Done** (v0.1.0) |
 | M2 | Artifact hashing and manifest verification | **Done (merged)** |
 | M3 | Unsigned in-toto/SLSA record and inspect | **Done (merged)** |
-| M4 | Signing and verification | Implemented; local gates passed, final/live CI pending |
+| M4 | Signing and verification | **Done; local/live/cross-platform CI passed, PR #3 open** |
 | M5 | GitHub Actions integration | Not started |
 | M6 | SBOM support and reproducibility checks | Not started |
 

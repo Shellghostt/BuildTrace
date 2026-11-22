@@ -1,11 +1,12 @@
 # BuildTrace Architecture
 
-**Status: M1–M3 merged; M4 implemented and verified locally on `feat/m4-implementation`, source `6ef2dd9`.**
+**Status: M1–M3 merged; M4 complete and locally/CI verified on `feat/m4-implementation`, source `91a11df`.**
 Unsigned provenance recording/inspection, metadata collectors, deterministic manifests, file/directory/
 symlink hashing and offline unsigned manifest verification exist. M1–M3 Windows/Ubuntu/macOS CI passed.
 The [merged main CI](https://github.com/Shellghostt/BuildTrace/actions/runs/44006031195) passed.
 M4 local/keyless signing and offline signer/artifact policy exist with passing local gates.
-Final real/cross-platform CI is pending publication. Dependency discovery and SBOM remain later milestones.
+All eight real/cross-platform source CI jobs passed; PR #3 is published/unmerged.
+Dependency discovery and SBOM remain later milestones.
 The authoritative specification is
 [PLAN.md](PLAN.md), and section 0 there is the current truth.
 
@@ -189,4 +190,5 @@ witnessed original build history. Offline roots require externally trusted provi
 revocation/compromise and global log consistency are outside the offline evidence. Root setup is an
 opt-in bounded TUF tool, while keyless signing uses configured public-good OIDC/Fulcio/Rekor services.
 The [81-module license/checksum inventory](dependencies/m4-signing.json) records the expanded runtime/tests.
-Final real authorized keyless signing and Windows/Ubuntu/macOS CI remain pending publication; no merge/release is claimed.
+Real authorized keyless signing and Windows/Ubuntu/macOS CI passed on source `91a11df`;
+[structured evidence](testing/m4-ci-results.json) records the results. No merge/release is claimed.

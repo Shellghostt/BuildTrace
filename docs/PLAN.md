@@ -33,19 +33,21 @@ merged at `2077b7780c993d688045845adbc61705edcc0616`; its
 [ADR 0005](adr/0005-m3-unsigned-recorder-contract.md) and the
 [versioned recorder contract](build-types/record/v1.md) define the unsigned operation.
 The [development-tool audit](DEVELOPMENT-TOOLS.md) records actual coverage and profiling limits.
-M4 is **implemented and verified locally** on `feat/m4-implementation`, source `6ef2dd9`.
+M4 is **complete and verified locally/in CI** on `feat/m4-implementation`, source `91a11df`.
 [Phase requirements](phases/M4.md), [validation](testing/m4-signing.md),
 [accepted ADR 0006](adr/0006-m4-signing-and-offline-verification.md) and dependency updates
 [0007](adr/0007-m4-audited-dependency-pins.md)/[0008](adr/0008-m4-resolved-protobuf-patch.md) define
-exact signing/trust/policy bounds. Final GitHub cross-platform CI and real keyless signing are pending
-publication; the feature branch is unmerged and no release is claimed.
+exact signing/trust/policy bounds. All eight [PR CI jobs](https://github.com/Shellghostt/BuildTrace/actions/runs/45051998762)
+passed, including real keyless signing/offline verification. [PR #3](https://github.com/Shellghostt/BuildTrace/pull/3)
+is published/unmerged; [structured CI evidence](testing/m4-ci-results.json) records the actual results.
+The original local measurement source is `6ef2dd9`; no release is claimed.
 
 ```yaml
 project: BuildTrace
 status: mvp
 version: 0.1.0
 builds: true
-functional: partial            # M1-M4 runtime exists; M4 live/cross-platform acceptance is pending
+functional: partial            # M1-M4 verified; M5-M6 remain
 
 implemented:
   - repository skeleton
@@ -199,7 +201,7 @@ flowchart LR
     META --> PROV[Provenance generator]
     HASH --> PROV
     PROV --> SIGN[Signing: keyless or local key]
-    SIGN --> OUT[Signed output: format pending ADR 0006]
+    SIGN --> OUT[DSSE envelope or Sigstore v0.3 bundle]
     OUT --> VER[Verifier]
     ART --> VER
     VER --> POLICY[Identity and digest policy]
@@ -528,14 +530,15 @@ GitHub CI and merged-main CI passed. Arbitrary build execution and signing are e
 **Deliverable:** DSSE envelopes, Sigstore keyless signing, local key signing, full verification pipeline with
 identity policy.
 
-Status: **Implemented and locally verified**, source `6ef2dd9`; branch unmerged/unpublished.
+Status: **Complete and locally/CI verified**, source `91a11df`; PR #3 published/unmerged.
 [M4 requirements](phases/M4.md), [validation](testing/m4-signing.md) and accepted ADRs 0006-0008
-record actual evidence. Final Windows/Ubuntu/macOS and real authorized keyless CI are pending publication.
+record actual evidence. All eight Windows/Ubuntu/macOS, container/reference/lint/security and real
+keyless signing/offline CI jobs passed; original local measurements retain source `6ef2dd9`.
 Signer authentication does not turn recorder observations/caller assertions into witnessed build history.
 
 **Acceptance criteria**
 
-- [ ] `record --sign keyless` produces the selected standard bundle/envelope with offline verification material in a real GitHub Actions runner
+- [x] `record --sign keyless` produces the selected standard bundle/envelope with offline verification material in a real GitHub Actions runner
 - [x] Verification fails with `identity_mismatch` when the workflow ref differs
 - [x] Verification fails with `digest_mismatch` when the artifact is modified after signing
 - [x] Local key signing and verification work with no network
@@ -545,7 +548,7 @@ Signer authentication does not turn recorder observations/caller assertions into
 - [x] Signed policy uses certificate identity/issuer or an external public-key pin, with separate builder/source assertions
 - [x] Signature/decoded/proof/path/output bounds, secret exclusion and unsigned-downgrade negatives are tested
 - [x] Independent signed-format checks, unchanged M2/M3 memory/offline/race gates and local runtime/reference audits pass
-- [ ] Final Windows/Ubuntu/macOS and real authorized keyless signing CI pass
+- [x] Final Windows/Ubuntu/macOS and real authorized keyless signing CI pass
 
 ### M5 — GitHub Actions integration
 
@@ -594,7 +597,7 @@ Signer authentication does not turn recorder observations/caller assertions into
 | BT-013 | Schema validation against upstream | BT-011 | M3 | Done; CI passed |
 | BT-014 | DSSE encoding and PAE | BT-010 | M4 | Implemented; local verified |
 | BT-015 | Local key signer and verifier | BT-014 | M4 | Implemented; local verified |
-| BT-016 | Sigstore keyless signer | BT-014 | M4 | Implemented; live signing acceptance pending |
+| BT-016 | Sigstore keyless signer | BT-014 | M4 | Done; real signing/offline CI passed |
 | BT-017 | Offline verification pipeline, artifact mapping and stable reasons | BT-015, BT-016 | M4 | Implemented; local verified |
 | BT-018 | Identity policy matcher | BT-017 | M4 | Implemented; local verified |
 | BT-019 | Historical offline trust/tamper/interoperability fixtures | BT-017, BT-018 | M4 | Implemented; local verified |
@@ -657,7 +660,7 @@ recording and inspection do not enforce signer policy.
 1. Should `record` fail when the working tree is dirty? *Current: warn, set observed `dirty: true`, continue.*
 2. Where do attestations live for OCI images? *Current: post-1.0.*
 3. Which authenticated time/log/proof material must keyless output carry for offline historical checks?
-   *Resolved by ADR 0006: standard v0.3 bundle, external v0.1 root, SET-authenticated time, inclusion proof/checkpoint and trusted chain/CT evidence. Real authorized signing CI remains pending publication.*
+   *Resolved by ADR 0006: standard v0.3 bundle, external v0.1 root, SET-authenticated time, inclusion proof/checkpoint and trusted chain/CT evidence. Real authorized signing/offline CI passed on source 91a11df.*
 
 ---
 
@@ -667,7 +670,8 @@ recording and inspection do not enforce signer policy.
 remote, builder and toolchain, plus artifact kind, size and SHA-256. M2 verification checks artifacts
 against an unsigned v1 manifest offline. It does not sign or authenticate metadata. `record`, `inspect`
 now generate/parse unsigned in-toto/SLSA statements with defined observations and caller assertions.
-M4 source 6ef2dd9 implements bounded signing and external signer/artifact verification with passing local gates. Final real/cross-platform CI remains pending; M3 inspection is not a verification verdict.
+M4 source `91a11df` implements bounded signing and external signer/artifact verification with passing
+local and all eight live/cross-platform CI gates. M3 inspection remains an unsigned inspection.
 
 **Rules:**
 
@@ -706,9 +710,9 @@ M4 source 6ef2dd9 implements bounded signing and external signer/artifact verifi
 
 1. Read sections 0, 3, 9 and 10. The trust model is the design.
 2. `make build && ./bin/buildtrace version`.
-3. M1-M3 remain merged. M4 is implemented/local verified under accepted ADRs 0006-0008. Read
+3. M1-M3 remain merged. M4 is complete/local/CI verified under accepted ADRs 0006-0008. Read
    [M4 requirements](phases/M4.md), [validation](testing/m4-signing.md) and preserve M2/M3 contracts.
-   Final cross-platform/real signing CI requires applicable publication authorization before merge readiness.
+   PR #3 is published/unmerged; review current-head CI before merging. Releases remain a separate action.
 4. Before adding a predicate field, define its input and whether it is observed or asserted.
 5. Never merge a verification path without a negative test for each failure reason.
 6. Manifest `schemaVersion: 1` is enforced. M2 emits digest/kind and rejects unknown versions.

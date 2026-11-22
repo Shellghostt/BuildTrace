@@ -2,7 +2,7 @@
 
 Audit date: 2026-11-22. These are development aids, not product features or substitutes for tests.
 Read [PLAN.md](PLAN.md), the [M4 requirements](phases/M4.md), implemented [M3 contract](phases/M3.md)
-and accepted [ADRs](adr/) first. M4 ADRs 0006-0008 are accepted; local gates passed and final live CI is pending publication.
+and accepted [ADRs](adr/) first. M4 ADRs 0006-0008 are accepted; local gates and all eight source/live CI jobs passed.
 
 ## CodeGraph
 
