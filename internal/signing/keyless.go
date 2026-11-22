@@ -100,7 +100,14 @@ func SignKeyless(parent context.Context, payload []byte, options KeylessOptions)
 	// The signing operation already owns this payload/key. Validate its returned
 	// certificate/log material; consumer verification still supplies its own policy.
 	if _, err := VerifyKeyless(decoded, options.TrustedRoot, summary.SubjectAlternativeName, summary.Issuer); err != nil {
-		return nil, failure("signing_failed", 3, "keyless bundle failed pinned-root offline validation")
+		message := "keyless bundle failed pinned-root offline validation"
+		var validation *Error
+		if errors.As(err, &validation) {
+			// Our verifier errors contain fixed descriptions, never remote/input
+			// material. Raw service/library errors retain the generic message.
+			message += ": " + validation.Message
+		}
+		return nil, failure("signing_failed", 3, message)
 	}
 	if ctx.Err() != nil {
 		return nil, failure("signing_failed", 3, "keyless signing was cancelled before publication")

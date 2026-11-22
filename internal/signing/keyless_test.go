@@ -72,6 +72,55 @@ func TestKeylessHistoricalOfflineAndIndependentSigstoreVerification(t *testing.T
 	}
 }
 
+func TestKeylessShardedGlobalIndexAndLocalProofRemainAuthenticated(t *testing.T) {
+	payload, err := testsigning.Payload("artifact.txt", []byte("hello"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture, err := testsigning.GenerateWithOptions(payload, testsigning.Options{VirtualLogIndex: 1 << 30})
+	if err != nil {
+		t.Fatal(err)
+	}
+	trusted, err := ParseTrustedRoot(fixture.TrustRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := DecodeKeylessBundle(fixture.Bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifier, err := sigverify.NewVerifier(trusted.Material, sigverify.WithTransparencyLog(1), sigverify.WithIntegratedTimestamps(1), sigverify.WithSignedCertificateTimestamps(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, err := sigverify.NewShortCertificateIdentity(testsigning.Issuer, "", testsigning.Identity, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := verifier.Verify(decoded.Bundle, sigverify.NewPolicy(sigverify.WithArtifact(strings.NewReader("hello")), sigverify.WithCertificateIdentity(identity))); err != nil {
+		t.Fatal("independent verifier rejected authentic sharded evidence", err)
+	}
+	evidence, err := VerifyKeyless(decoded, trusted, testsigning.Identity, testsigning.Issuer)
+	if err != nil || evidence.SigningTime == nil || !evidence.SigningTime.Equal(fixture.SigningTime) {
+		t.Fatal("global SET index and shard-local proof must verify at authenticated time", err)
+	}
+	var altered protobundle.Bundle
+	if err := protojson.Unmarshal(fixture.Bundle, &altered); err != nil {
+		t.Fatal(err)
+	}
+	altered.VerificationMaterial.TlogEntries[0].LogIndex++
+	encoded, err := protojson.Marshal(&altered)
+	if err != nil {
+		t.Fatal(err)
+	}
+	modified, err := DecodeKeylessBundle(encoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = VerifyKeyless(modified, trusted, testsigning.Identity, testsigning.Issuer)
+	errorReason(t, err, "transparency_invalid", 1)
+}
+
 func TestKeylessTamperTrustTimeIdentityAndProofMatrix(t *testing.T) {
 	fixture, trusted := keylessFixture(t)
 	for _, test := range []struct {

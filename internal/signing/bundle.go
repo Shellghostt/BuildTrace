@@ -337,9 +337,12 @@ func VerifyKeyless(input KeylessBundle, trusted TrustedRoot, identity, issuer st
 	}
 	proof := entry.TransparencyLogEntry().GetInclusionProof()
 	var checkpoint rekorutil.SignedCheckpoint
+	// Rekor's SET authenticates the cumulative index across shards. Merkle
+	// inclusion authenticates the leaf index within the signed shard checkpoint.
+	// Those indexes need not be equal once an earlier shard has closed.
 	if proof == nil || proof.GetCheckpoint() == nil || checkpoint.UnmarshalText([]byte(proof.GetCheckpoint().GetEnvelope())) != nil ||
 		checkpoint.Size != uint64(proof.GetTreeSize()) || !bytes.Equal(checkpoint.Hash, proof.GetRootHash()) || proof.GetLogIndex() >= proof.GetTreeSize() ||
-		proof.GetLogIndex() != entry.LogIndex() {
+		proof.GetLogIndex() > entry.LogIndex() {
 		return SignerEvidence{}, failure("transparency_invalid", 1, "signed checkpoint and proof tree/index/root are inconsistent")
 	}
 	logVerifier, err := signature.LoadVerifier(log.PublicKey, log.SignatureHashFunc)

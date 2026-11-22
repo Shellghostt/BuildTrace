@@ -173,9 +173,10 @@ func TestPinnedPublicKeysRejectPrivateMalformedAndUnsupportedInputs(t *testing.T
 	}
 	_, err = LoadPublicKey(path)
 	errorReason(t, err, "unsupported_key", 2)
-	if err := os.WriteFile(path, pem.EncodeToMemory(&pem.Block{Type: "ENCRYPTED PRIVATE KEY", Bytes: privateDER}), 0o600); err != nil {
+	privatePath := filepath.Join(t.TempDir(), "private.pem")
+	if err := os.WriteFile(privatePath, pem.EncodeToMemory(&pem.Block{Type: "ENCRYPTED PRIVATE KEY", Bytes: privateDER}), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err = LoadPrivateKey(path)
+	_, err = LoadPrivateKey(privatePath)
 	errorReason(t, err, "unsupported_key", 2)
 }

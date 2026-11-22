@@ -1,8 +1,10 @@
 # M4 signing and offline verification validation — 2026-11-22
 
 Status: **Implemented and verified locally on `feat/m4-implementation`, source `6ef2dd9`.**
-The branch is local/unmerged. Final GitHub Windows/Ubuntu/macOS CI and real authorized keyless signing
-are **pending publication**, so M4's live/CI acceptance boxes remain open. No release or merge is claimed.
+The original local baseline is source `6ef2dd9`; subsequent published CI corrections are recorded below.
+The feature branch is published in [PR #3](https://github.com/Shellghostt/BuildTrace/pull/3), unmerged.
+Final GitHub Windows/Ubuntu/macOS CI and real authorized keyless signing remain **pending successful CI**,
+so M4's live/CI acceptance boxes remain open. No release or merge is claimed.
 Accepted [ADR 0006](../adr/0006-m4-signing-and-offline-verification.md) preceded signing code;
 [0007](../adr/0007-m4-audited-dependency-pins.md) and [0008](../adr/0008-m4-resolved-protobuf-patch.md)
 record the audited compatible dependency graph without rewriting prior decisions.
@@ -99,6 +101,29 @@ label and output failure have targeted negatives and fixed messages. No failure 
   supported key `Bytes` APIs; no lint exclusions were added.
 - Offline schema execution from a newer launcher with `GOTOOLCHAIN=go1.26.11` and `GOSUMDB=off` failed
   toolchain verification. Use the cached exact compiler in PATH and `GOTOOLCHAIN=local` for offline setup.
+
+## Published CI corrections
+
+The first [PR CI](https://github.com/Shellghostt/BuildTrace/actions/runs/45050471040) on `5f6842e`
+passed Windows race/memory, container, reference schemas, lint and security, but failed Ubuntu/macOS
+on a fixture permission assertion and rejected the real keyless bundle during pinned-root validation.
+
+- `TestPinnedPublicKeysRejectPrivateMalformedAndUnsupportedInputs` reused a public file created with
+  mode 0644. Writing it again with mode 0600 did not change the existing permissions, so the private
+  permission guard correctly fired before the encrypted-key reason. The encrypted fixture now uses
+  a fresh private file; production permission enforcement is unchanged.
+- Rekor v1 SETs sign the cumulative index across shards, while inclusion proofs use the leaf index
+  within their signed shard checkpoint. The verifier incorrectly required those indexes to be equal.
+  It now preserves separate authenticated SET/proof checks, local-index/tree bounds and checkpoint
+  size/root/signature binding. `TestKeylessShardedGlobalIndexAndLocalProofRemainAuthenticated` first
+  reproduces the old rejection after independent Sigstore verification succeeds, then validates the
+  correction and rejects a modified global index without a new SET. No signature/proof check is skipped.
+- Signing failures include only the verifier's fixed internal description; raw remote/library errors
+  remain generic and no failed signing output is published.
+
+After these corrections, native Windows race passed for signing (28.070s) and CLI (40.716s),
+vet/lint reported 0 issues, and the complete signing package passed in Go 1.26.11 Linux (2.340s)
+with network disabled and prepared modules. Full published CI/live signing remains a separate gate.
 
 ## Reproduction and pending evidence
 

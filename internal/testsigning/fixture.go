@@ -78,12 +78,13 @@ func Generate(payload []byte) (Fixture, error) {
 	return GenerateWithOptions(payload, Options{})
 }
 
-// Options deliberately removes required evidence or selects a wrong signing
-// time for negative certificate tests while keeping the log binding genuine.
+// Options selects a sharded global log index or removes required evidence/time
+// for negative certificate tests while keeping the log binding genuine.
 type Options struct {
-	OmitSCT     bool
-	OmitIssuer  bool
-	SigningTime time.Time
+	OmitSCT         bool
+	OmitIssuer      bool
+	SigningTime     time.Time
+	VirtualLogIndex int64
 }
 
 func GenerateWithOptions(payload []byte, options Options) (Fixture, error) {
@@ -210,7 +211,7 @@ func GenerateWithOptions(payload []byte, options Options) (Fixture, error) {
 		return Fixture{}, err
 	}
 	rekorID := sha256.Sum256(rekorDER)
-	setBody, err := json.Marshal(tlog.RekorPayload{Body: base64.StdEncoding.EncodeToString(body), IntegratedTime: signedAt.Unix(), LogIndex: 0, LogID: hex.EncodeToString(rekorID[:])})
+	setBody, err := json.Marshal(tlog.RekorPayload{Body: base64.StdEncoding.EncodeToString(body), IntegratedTime: signedAt.Unix(), LogIndex: options.VirtualLogIndex, LogID: hex.EncodeToString(rekorID[:])})
 	if err != nil {
 		return Fixture{}, err
 	}
@@ -232,7 +233,7 @@ func GenerateWithOptions(payload []byte, options Options) (Fixture, error) {
 	if err != nil {
 		return Fixture{}, err
 	}
-	entry := &protorekor.TransparencyLogEntry{LogIndex: 0, LogId: &common.LogId{KeyId: rekorID[:]},
+	entry := &protorekor.TransparencyLogEntry{LogIndex: options.VirtualLogIndex, LogId: &common.LogId{KeyId: rekorID[:]},
 		KindVersion: &protorekor.KindVersion{Kind: "dsse", Version: "0.0.1"}, IntegratedTime: signedAt.Unix(), CanonicalizedBody: body,
 		InclusionPromise: &protorekor.InclusionPromise{SignedEntryTimestamp: set}, InclusionProof: &protorekor.InclusionProof{
 			LogIndex: 0, RootHash: rootHash[:], TreeSize: 1, Checkpoint: &protorekor.Checkpoint{Envelope: string(checkpoint)}}}
